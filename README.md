@@ -39,7 +39,7 @@ with no Google or Active Directory credentials. When you are ready, the Owner fl
 You need Python 3.10 or newer. Works on Windows, macOS and Linux in Demo mode.
 
 ```bash
-git clone https://github.com/<your-account>/gws2ad.git
+git clone https://github.com/jonnytech-dev/gws2ad.git
 cd gws2ad
 
 python -m venv venv
