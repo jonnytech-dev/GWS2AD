@@ -1,0 +1,172 @@
+{% extends "settings_base.html" %}
+{% from "_macros.html" import perm_checklist, code_field, avatar, tags with context %}
+
+{% block settings_body %}
+<p class="back-link"><a href="{{ url_for('settings_accounts') }}">&larr; All accounts</a></p>
+
+<div class="detail-head">
+    {{ avatar(target) }}
+    <div>
+        <h2 class="detail-name">{{ target.display }}</h2>
+        <div class="account-card-user">@{{ target.username }}</div>
+        <div class="account-card-tags">{{ tags(target) }}</div>
+    </div>
+</div>
+
+<div class="settings-narrow">
+    <div class="card">
+        <h2 class="card-title">Details</h2>
+        <div class="form-group"><label class="form-label">Email</label><div class="info-value">{{ target.email or 'Not set' }}</div></div>
+        <div class="form-group"><label class="form-label">Status</label><div class="info-value">{{ 'Active' if target.is_active else 'Deactivated (cannot sign in)' }}</div></div>
+        <div class="form-group"><label class="form-label">Two-step verification</label>
+            <div class="info-value">
+                {% if target.two_factor_enabled %}
+                    On{% if target.twofa_enrolled_at %}, set up {{ target.twofa_enrolled_at.strftime('%B %d, %Y') }}{% endif %}. Recovery codes left: {{ recovery_left }} of 10.
+                {% else %}
+                    Not set up yet. They must set it up before they can use anything.
+                {% endif %}
+            </div>
+        </div>
+        <div class="form-group"><label class="form-label">Created</label>
+            <div class="info-value">{{ target.created_at.strftime('%B %d, %Y') }}{% if target.created_by %} by {{ target.created_by }}{% endif %}</div></div>
+        <div class="form-group"><label class="form-label">Last sign-in</label>
+            <div class="info-value">{{ target.last_login.strftime('%B %d, %Y at %I:%M %p') if target.last_login else 'Never' }}</div></div>
+    </div>
+
+    <div class="card">
+        <h2 class="card-title">Permissions</h2>
+        {% if target.role == 'owner' %}
+            <p class="settings-lead">The Owner can do everything, including managing every account and role. This account cannot be deleted, deactivated, or demoted.</p>
+        {% else %}
+            <ul class="info-list">
+                <li>View users and groups</li>
+                {% for key in target_permission_list %}<li>{{ perm.SHORT_NAMES[key] }}</li>{% endfor %}
+                {% if target.role == 'admin' %}
+                    <li>Manage admin accounts: {{ 'Yes' if target.can_manage_admins else 'No' }}</li>
+                    <li>Manage staff accounts: {{ 'Yes' if target.can_manage_staff else 'No' }}</li>
+                {% endif %}
+            </ul>
+            {% if target.role == 'named' %}<p class="field-hint">These come from the role "{{ target.role_label }}".</p>{% endif %}
+        {% endif %}
+    </div>
+
+    {% if not can_edit %}
+    <div class="card">
+        <p class="settings-lead">
+            {% if target.role == 'owner' %}The owner account cannot be changed here.
+            {% elif target.id == user.id %}This is you. Change your own details under Profile.
+            {% else %}You can look at this account but not change it.{% endif %}
+        </p>
+    </div>
+    {% else %}
+
+    <div class="card">
+        <h2 class="card-title">Edit Account</h2>
+        {% if edit_error %}<div class="alert alert-error"><div class="alert-icon">⚠</div><div>{{ edit_error }}</div></div>{% endif %}
+        <form method="POST" action="{{ url_for('settings_account_edit', account_id=target.id) }}" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label class="form-label" for="display_name">Name</label>
+                <input type="text" id="display_name" name="display_name" class="form-input" maxlength="120" value="{{ target.display_name or '' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="email">Email</label>
+                <input type="email" id="email" name="email" class="form-input" maxlength="120" value="{{ target.email or '' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="role_choice">Role</label>
+                <select id="role_choice" name="role_choice" class="form-input">
+                    {% for value, label in role_choices %}
+                    <option value="{{ value }}" {% if value == current_choice %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="permBox" hidden>
+                <label class="form-label">Permissions</label>
+                {{ perm_checklist(target_perms) }}
+            </div>
+            {% if caps.set_flags %}
+            <div class="form-group" id="flagBox" hidden>
+                <label class="form-label">Account management (Admin only)</label>
+                <label class="perm-item"><input type="checkbox" name="can_manage_admins" value="1" {% if target.can_manage_admins %}checked{% endif %}>
+                    <span><strong>Can manage admin accounts</strong><small>View, add, edit, and delete other admins</small></span></label>
+                <label class="perm-item"><input type="checkbox" name="can_manage_staff" value="1" {% if target.can_manage_staff %}checked{% endif %}>
+                    <span><strong>Can manage staff accounts</strong><small>View, add, edit, and delete everyone who is not an admin, and manage roles</small></span></label>
+            </div>
+            {% endif %}
+            {{ code_field('Your current 6-digit code (only needed if you change the role or permissions)', required=False) }}
+            <button type="submit" class="btn btn-primary">Save changes</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2 class="card-title">Reset Password</h2>
+        {% if password_error %}<div class="alert alert-error"><div class="alert-icon">⚠</div><div>{{ password_error }}</div></div>{% endif %}
+        <form method="POST" action="{{ url_for('settings_account_password', account_id=target.id) }}" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label class="form-label" for="reset_password">New password</label>
+                <input type="password" id="reset_password" name="password" class="form-input" autocomplete="new-password" minlength="12" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="reset_confirm">Confirm new password</label>
+                <input type="password" id="reset_confirm" name="confirm_password" class="form-input" autocomplete="new-password" minlength="12" required>
+            </div>
+            {{ code_field() }}
+            <button type="submit" class="btn btn-secondary">Reset password</button>
+        </form>
+    </div>
+
+    <div class="card danger-card">
+        <h2 class="card-title">Danger Zone</h2>
+        {% if danger_error %}<div class="alert alert-error"><div class="alert-icon">⚠</div><div>{{ danger_error }}</div></div>{% endif %}
+
+        {% if target.is_locked %}
+        <form method="POST" action="{{ url_for('settings_account_unlock', account_id=target.id) }}" class="danger-row" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div><strong>Unlock account</strong><p class="field-hint">Locked after too many wrong passwords or codes. It unlocks by itself after 15 minutes, or you can end it now.</p></div>
+            <div class="danger-actions">{{ code_field() }}<button type="submit" class="btn btn-secondary">Unlock</button></div>
+        </form>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('settings_account_reset_2fa', account_id=target.id) }}" class="danger-row" autocomplete="off"
+              onsubmit="return confirm('Reset two-step verification for {{ target.username }}? They will set it up again at their next sign-in.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div><strong>Reset two-step verification</strong><p class="field-hint">For someone who lost their phone and recovery codes. Their current sign-in ends and they set it up again.</p></div>
+            <div class="danger-actions">{{ code_field() }}<button type="submit" class="btn btn-secondary">Reset two-step</button></div>
+        </form>
+
+        <form method="POST" action="{{ url_for('settings_account_active', account_id=target.id) }}" class="danger-row" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="active" value="{{ '0' if target.is_active else '1' }}">
+            <div><strong>{{ 'Deactivate account' if target.is_active else 'Reactivate account' }}</strong>
+                <p class="field-hint">{{ 'They can no longer sign in. You can turn it back on later.' if target.is_active else 'They will be able to sign in again.' }}</p></div>
+            <div class="danger-actions">{{ code_field() }}<button type="submit" class="btn btn-secondary">{{ 'Deactivate' if target.is_active else 'Reactivate' }}</button></div>
+        </form>
+
+        <form method="POST" action="{{ url_for('settings_account_delete', account_id=target.id) }}" class="danger-row" autocomplete="off"
+              onsubmit="return confirm('Delete {{ target.username }} for good? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div><strong>Delete account</strong><p class="field-hint">Removes the account for good. Their past activity stays in the audit log.</p></div>
+            <div class="danger-actions">{{ code_field() }}<button type="submit" class="btn btn-danger">Delete</button></div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+{% if can_edit %}
+<script>
+    (function () {
+        var role = document.getElementById('role_choice');
+        var permBox = document.getElementById('permBox');
+        var flagBox = document.getElementById('flagBox');
+        function sync() {
+            permBox.hidden = role.value !== 'custom';
+            if (flagBox) flagBox.hidden = role.value !== 'admin';
+        }
+        role.addEventListener('change', sync);
+        sync();
+    })();
+</script>
+{% endif %}
+{% endblock %}

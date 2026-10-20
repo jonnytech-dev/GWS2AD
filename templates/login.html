@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - {{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version('style.css') }}">
+</head>
+<body style="background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); margin: 0;">
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-logo">{% include "_brand_logo.html" %}</div>
+                <h1 class="login-title">{{ app_name }}</h1>
+                <p class="login-subtitle">Admin Panel</p>
+            </div>
+
+            {% if error %}
+                <div class="alert alert-error">
+                    <div class="alert-icon">⚠</div>
+                    <div>{{ error }}</div>
+                </div>
+            {% endif %}
+
+            <form method="POST" class="login-form">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        class="form-input" 
+                        placeholder="admin"
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        placeholder="••••••••"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

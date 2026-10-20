@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}How It Works - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container guide">
+    <h1 class="page-title">How It Works</h1>
+    <p class="page-subtitle">A quick guide to what {{ app_name }} does and how to use it.</p>
+
+    <!-- The big idea -->
+    <div class="card guide-card">
+        <div class="card-head">
+            <span class="icon-circle">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>
+            </span>
+            <div class="card-head-text">
+                <h2 class="section-title">The big idea</h2>
+                <p class="section-subtitle">Google Workspace is the master list. Active Directory is a copy of it.</p>
+            </div>
+        </div>
+
+        <div class="guide-flow">
+            <div class="flow-box">
+                <span class="flow-label">Google Workspace</span>
+                <span class="flow-note">Where your changes are saved</span>
+            </div>
+            <span class="flow-arrow"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
+            <div class="flow-box accent">
+                <span class="flow-label">Sync</span>
+                <span class="flow-note">You press the button</span>
+            </div>
+            <span class="flow-arrow"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></span>
+            <div class="flow-box">
+                <span class="flow-label">Active Directory</span>
+                <span class="flow-note">Updated to match Google</span>
+            </div>
+        </div>
+        <p class="guide-text">A sync only goes one way, from Google to AD. AD never changes anything in Google.</p>
+    </div>
+
+    <!-- Day to day -->
+    <div class="card guide-card">
+        <div class="card-head">
+            <span class="icon-circle">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"/></svg>
+            </span>
+            <div class="card-head-text">
+                <h2 class="section-title">Day to day</h2>
+                <p class="section-subtitle">Four steps, in this order.</p>
+            </div>
+        </div>
+
+        <ol class="steps">
+            <li class="step">
+                <span class="step-num">1</span>
+                <div class="step-body">
+                    <strong>Make your changes</strong>
+                    <p>Add, edit, or delete users and groups on the Dashboard. They are saved to Google Workspace right away.</p>
+                </div>
+            </li>
+            <li class="step">
+                <span class="step-num">2</span>
+                <div class="step-body">
+                    <strong>Check the sync box</strong>
+                    <p>It says Synced when AD matches Google. It says Out of Sync when AD is behind.</p>
+                </div>
+            </li>
+            <li class="step">
+                <span class="step-num">3</span>
+                <div class="step-body">
+                    <strong>Preview the sync</strong>
+                    <p>Click Sync Workspace to AD. You see everything that will be created, updated, moved, or deleted. Nothing changes yet.</p>
+                </div>
+            </li>
+            <li class="step">
+                <span class="step-num">4</span>
+                <div class="step-body">
+                    <strong>Confirm</strong>
+                    <p>Apply the sync. If new accounts were created, copy the temporary passwords shown. They appear only once.</p>
+                </div>
+            </li>
+        </ol>
+    </div>
+
+    <div class="guide-grid">
+        <!-- What a sync does -->
+        <div class="card guide-card">
+            <div class="card-head">
+                <span class="icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                </span>
+                <div class="card-head-text">
+                    <h2 class="section-title">What a sync does</h2>
+                    <p class="section-subtitle">Changes made to AD</p>
+                </div>
+            </div>
+            <ul class="checklist">
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Creates</strong> users and groups that are in Google but not in AD, plus any missing OUs.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Updates</strong> user details and group descriptions.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Moves</strong> users into the OU that matches their Google OU.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Adds and removes</strong> group members so each group matches Google exactly.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Deletes</strong> users and groups that are in AD but not in Google, unless they are on the Ignore list. Last, it deletes OUs that Google no longer has, but only empty ones.</span></li>
+            </ul>
+        </div>
+
+        <!-- Good to know -->
+        <div class="card guide-card">
+            <div class="card-head">
+                <span class="icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </span>
+                <div class="card-head-text">
+                    <h2 class="section-title">Good to know</h2>
+                    <p class="section-subtitle">Safety and small details</p>
+                </div>
+            </div>
+            <ul class="checklist">
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Backup first.</strong> A copy of your Google data is saved before each sync. If the backup fails, the sync still runs.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Ignore list.</strong> In the preview, click Keep in AD on anything that should stay in AD only, and say why if you like. Sync will not delete it. This works for users, groups and OUs. Ignored items move to the bottom of the preview, where Stop ignoring undoes it. Settings has an Ignore list tab with all of them.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Email notifications.</strong> The small switch under the sync box decides if new people are emailed their username and temporary password. Hover over it for details.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Your role.</strong> What you can do depends on your role. It is listed in Settings, under Profile.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Changes made elsewhere.</strong> Changes made directly in the Google Admin console can take up to 10 minutes to show here. Running a sync refreshes the lists right away.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Two-step sign-in.</strong> After your password, enter the 6-digit code from your authenticator app. Lost your phone? Sign in with a recovery code, then pair your new phone in Settings, under Profile.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Lockout.</strong> Five wrong passwords, or five wrong codes, lock the account for 15 minutes.</span></li>
+                <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Auto sign-out.</strong> You are signed out after 15 minutes of no activity.</span></li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

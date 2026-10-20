@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Two-step verification - {{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version('style.css') }}">
+</head>
+<body style="background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); margin: 0;">
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-logo">{% include "_brand_logo.html" %}</div>
+                <h1 class="login-title">Two-step verification</h1>
+                <p class="login-subtitle">Enter the 6-digit code from your authenticator app</p>
+            </div>
+
+            {% if error %}
+                <div class="alert alert-error">
+                    <div class="alert-icon">⚠</div>
+                    <div>{{ error }}</div>
+                </div>
+            {% endif %}
+
+            <form method="POST" class="login-form" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="code" class="form-label">Authentication code</label>
+                    <input type="text" id="code" name="code" class="form-input code-input"
+                           inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*"
+                           maxlength="7" placeholder="000000" required {% if not show_recovery %}autofocus{% endif %}>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    Verify
+                </button>
+            </form>
+
+            <details class="recovery-toggle" {% if show_recovery %}open{% endif %}>
+                <summary>Lost your phone? Use a recovery code</summary>
+                <form method="POST" class="login-form" autocomplete="off">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label for="recovery_code" class="form-label">Recovery code</label>
+                        <input type="text" id="recovery_code" name="recovery_code" class="form-input recovery-input"
+                               placeholder="XXXXX-XXXXX" maxlength="14" autocapitalize="characters"
+                               spellcheck="false" required {% if show_recovery %}autofocus{% endif %}>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+                        Sign in with recovery code
+                    </button>
+                </form>
+            </details>
+
+            <p class="login-footer-link"><a href="{{ url_for('login_cancel') }}">Back to sign in</a></p>
+        </div>
+    </div>
+</body>
+</html>

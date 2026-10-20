@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container settings">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-subtitle">Your profile{% if caps.see_accounts %}, the accounts that use {{ app_name }}{% endif %}{% if caps.manage_roles %}, roles{% endif %}{% if caps.see_ignored %}, the ignore list{% endif %}{% if caps.manage_connection %}, and the Demo / Live connection{% endif %}.</p>
+
+    <nav class="settings-tabs" aria-label="Settings sections">
+        <a href="{{ url_for('settings_profile') }}" class="{% if tab == 'profile' %}active{% endif %}">Profile</a>
+        {% if caps.see_accounts %}<a href="{{ url_for('settings_accounts') }}" class="{% if tab == 'accounts' %}active{% endif %}">Accounts</a>{% endif %}
+        {% if caps.manage_roles %}<a href="{{ url_for('settings_roles') }}" class="{% if tab == 'roles' %}active{% endif %}">Roles</a>{% endif %}
+        {% if caps.see_ignored %}<a href="{{ url_for('settings_ignored') }}" class="{% if tab == 'ignored' %}active{% endif %}">Ignore list</a>{% endif %}
+        {% if caps.manage_connection %}<a href="{{ url_for('settings_connection') }}" class="{% if tab == 'connection' %}active{% endif %}">Connection</a>{% endif %}
+    </nav>
+
+    {% if notice %}
+        <div class="alert alert-{{ notice[0] }}"><div>{{ notice[1] }}</div></div>
+    {% endif %}
+
+    {% block settings_body %}{% endblock %}
+</div>
+{% endblock %}

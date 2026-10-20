@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version('style.css') }}">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <svg width="56" height="52" class="logo-svg" viewBox="0 0 56 52" fill="none" aria-hidden="true">
+                <path d="M28 8 L7.5 45 H48.5 Z" stroke="#4CCF86" stroke-width="4" stroke-linejoin="round"/>
+                <path d="M9 45 H47" stroke="#5CD690" stroke-width="7" stroke-linecap="round"/>
+                <circle cx="28" cy="8" r="7" fill="#5BD58F"/>
+                <circle cx="8" cy="45" r="7" fill="#5BD58F"/>
+                <circle cx="48" cy="45" r="7" fill="#5BD58F"/>
+            </svg>
+            <div>
+                <div class="navbar-brand-name">{{ app_name }}</div>
+                <div class="navbar-subtitle">Google Workspace to Active Directory</div>
+            </div>
+        </div>
+
+        <div class="navbar-nav">
+            {% if session.get('username') %}
+                <a href="{{ url_for('dashboard') }}" aria-label="Dashboard" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="{{ url_for('settings_profile') }}" aria-label="Settings" class="{% if request.endpoint and request.endpoint.startswith('settings') %}active{% endif %}">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    <span class="nav-label">Settings</span>
+                </a>
+                <a href="{{ url_for('how_it_works') }}" aria-label="How It Works" class="{% if request.endpoint == 'how_it_works' %}active{% endif %}">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                    <span class="nav-label">How It Works</span>
+                </a>
+                <a href="{{ url_for('logout') }}" aria-label="Logout" class="nav-logout">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                    <span class="nav-label">Logout</span>
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    {% if demo_mode %}
+    <div class="demo-banner" role="status">
+        <strong>Demo mode.</strong> You are looking at sample data. Nothing here touches a real Google Workspace or Active Directory.
+        {% if caps and caps.manage_connection %}<a href="{{ url_for('settings_connection') }}">Connection settings</a>{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 2rem; color: #999; font-size: 0.85rem; margin-top: 3rem; border-top: 1px solid #EEE;">
+        <p>{{ app_name }} Admin Panel • Version 1.0 • Last updated: 2026</p>
+        <p style="margin-top: 0.4rem;">Created by <strong style="color: #666;">JonnyTech</strong> • <a href="https://github.com/jonnytech-dev" target="_blank" rel="noopener" style="color: #666; text-decoration: none; border-bottom: 1px solid #CCC;">GitHub</a></p>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Common utility functions
+        
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.add('show');
+            
+            // Load groups and OUs when opening Add User modal
+            if (modalId === 'addUserModal') {
+                loadGroupsForAddUserModal();
+                if (typeof loadOusForAddUserModal === 'function') {
+                    loadOusForAddUserModal();
+                }
+            }
+        }
+        
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.remove('show');
+        }
+        
+        function showToast(message, type = 'success', duration = 3500) {
+            // Create toast container if it doesn't exist
+            let toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toastContainer';
+                toastContainer.style.cssText = `
+                    position: fixed;
+                    bottom: 1.25rem;
+                    right: 1.25rem;
+                    z-index: 10000;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.625rem;
+                    max-width: 25rem;
+                `;
+                document.body.appendChild(toastContainer);
+            }
+            
+            // Create toast
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3';
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+            
+            toast.style.cssText = `
+                background-color: ${bgColor};
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 4px;
+                box-shadow: 0 4px 0.75rem rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                min-width: 18.75rem;
+                animation: slideInRight 0.3s ease-out;
+                font-weight: 500;
+            `;
+            
+            toast.innerHTML = `
+                <span style="font-size: 1.2rem;">${icon}</span>
+                <span>${message}</span>
+            `;
+            
+            toastContainer.appendChild(toast);
+            
+            // Auto-remove after duration
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease-out';
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+        
+        // Alias for backward compatibility
+        function showAlert(message, type = 'success') {
+            showToast(message, type);
+        }
+        
+        function apiCall(method, endpoint, data = null) {
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // Without this, the browser can serve a cached copy of
+                // a GET response instead of actually asking the server
+                // again - so a refresh could still show old data even
+                // right after something changed.
+                cache: 'no-store'
+            };
+            
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            
+            return fetch(endpoint, options)
+                .then(response => response.json().then(json => {
+                    if (!response.ok) {
+                        // Extract error message from response
+                        const errorMsg = json.error || `HTTP ${response.status}`;
+                        throw new Error(errorMsg);
+                    }
+                    return json;
+                }))
+                .catch(error => {
+                    throw error;
+                });
+        }
+        
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('show');
+            }
+        });
+        
+        // Close modal with close button
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.closest('.modal').classList.remove('show');
+            });
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

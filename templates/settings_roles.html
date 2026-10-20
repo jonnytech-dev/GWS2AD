@@ -1,0 +1,36 @@
+{% extends "settings_base.html" %}
+
+{% block settings_body %}
+<div class="settings-toolbar">
+    <p class="settings-lead">A role is a named set of permissions, such as "Help Desk". Put new accounts in a role instead of picking permissions every time.</p>
+    <a href="{{ url_for('settings_role_new') }}" class="btn btn-primary">+ New role</a>
+</div>
+
+<div class="account-grid">
+    <div class="account-card static"><div class="account-card-main">
+        <div class="account-card-name">Owner</div>
+        <div class="account-card-tags"><span class="tag">Built in</span></div>
+        <div class="account-card-perms">Everything. One account, cannot be removed.</div>
+    </div></div>
+    <div class="account-card static"><div class="account-card-main">
+        <div class="account-card-name">Admin</div>
+        <div class="account-card-tags"><span class="tag">Built in</span></div>
+        <div class="account-card-perms">Everything on the dashboard. The Owner decides who can also manage accounts.</div>
+    </div></div>
+    <div class="account-card static"><div class="account-card-main">
+        <div class="account-card-name">Custom</div>
+        <div class="account-card-tags"><span class="tag">Built in</span></div>
+        <div class="account-card-perms">Permissions picked for one account at a time.</div>
+    </div></div>
+
+    {% for r in roles %}
+    <a class="account-card" href="{{ url_for('settings_role_edit', role_id=r.id) }}">
+        <div class="account-card-main">
+            <div class="account-card-name">{{ r.name }}</div>
+            <div class="account-card-tags"><span class="role-badge role-named">Role</span> <span class="tag">{{ r.member_count() }} account{{ '' if r.member_count() == 1 else 's' }}</span></div>
+            <div class="account-card-perms">{{ r.summary() }}            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}

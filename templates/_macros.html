@@ -1,0 +1,36 @@
+{# Pieces shared by the Settings pages. Import with:  {% from "_macros.html" import ... with context %} #}
+
+{% macro perm_checklist(selected) %}
+<div class="perm-grid">
+    <label class="perm-item perm-fixed">
+        <input type="checkbox" checked disabled>
+        <span><strong>View users and groups</strong><small>Always on</small></span>
+    </label>
+    {% for key, short, long in perm.PERMISSIONS %}
+    <label class="perm-item">
+        <input type="checkbox" name="perm" value="{{ key }}" {% if key in selected %}checked{% endif %}>
+        <span><strong>{{ short }}</strong><small>{{ long }}</small></span>
+    </label>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro code_field(label='Your current 6-digit code', required=True) %}
+<div class="form-group">
+    <label class="form-label" for="stepup_code">{{ label }}</label>
+    <input type="text" id="stepup_code" name="code" class="form-input code-input-sm" inputmode="numeric"
+           autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="7" placeholder="000000" {% if required %}required{% endif %}>
+</div>
+{% endmacro %}
+
+{% macro avatar(account) %}
+{% set words = account.display.split() %}
+<span class="avatar {{ ['mint', 'blue', 'pink', 'lavender'][account.id % 4] }}">{{ ((words[0][0] if words else '?') ~ (words[1][0] if words|length > 1 else ''))|upper }}</span>
+{% endmacro %}
+
+{% macro tags(account) %}
+<span class="role-badge role-{{ account.role }}">{{ account.role_label }}</span>
+{% if not account.is_active %}<span class="tag tag-off">Deactivated</span>{% endif %}
+{% if account.is_locked %}<span class="tag tag-off">Locked</span>{% endif %}
+{% if not account.two_factor_enabled %}<span class="tag tag-warn">Two-step not set up yet</span>{% endif %}
+{% endmacro %}

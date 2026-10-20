@@ -1,0 +1,49 @@
+{% extends "settings_base.html" %}
+{% from "_macros.html" import perm_checklist, code_field with context %}
+
+{% block settings_body %}
+<p class="back-link"><a href="{{ url_for('settings_roles') }}">&larr; All roles</a></p>
+
+<div class="settings-narrow">
+    <div class="card">
+        <h2 class="card-title">{{ 'Edit Role' if role else 'New Role' }}</h2>
+        {% if role %}<p class="settings-lead">Saving updates everyone in this role right away.</p>{% endif %}
+        {% if error %}<div class="alert alert-error"><div class="alert-icon">⚠</div><div>{{ error }}</div></div>{% endif %}
+
+        <form method="POST" action="{{ url_for('settings_role_edit', role_id=role.id) if role else url_for('settings_role_new') }}" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label class="form-label" for="name">Role name</label>
+                <input type="text" id="name" name="name" class="form-input" maxlength="60" value="{{ form.get('name', role.name if role else '') }}" placeholder="For example: Help Desk" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Permissions</label>
+                {{ perm_checklist(selected_perms) }}
+            </div>
+            {{ code_field() }}
+            <button type="submit" class="btn btn-primary">{{ 'Save role' if role else 'Create role' }}</button>
+        </form>
+    </div>
+
+    {% if role %}
+    <div class="card">
+        <h2 class="card-title">Accounts in this role</h2>
+        {% if members %}
+            <ul class="info-list">{% for m in members %}<li><a href="{{ url_for('settings_account_detail', account_id=m.id) if caps.see_accounts else '#' }}">{{ m.display }}</a> (@{{ m.username }})</li>{% endfor %}</ul>
+        {% else %}
+            <p class="settings-lead">Nobody uses this role yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card danger-card">
+        <h2 class="card-title">Delete Role</h2>
+        <form method="POST" action="{{ url_for('settings_role_delete', role_id=role.id) }}" class="danger-row" autocomplete="off"
+              onsubmit="return confirm('Delete the role {{ role.name }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div><strong>Delete this role</strong><p class="field-hint">A role that people still use cannot be deleted. Move them to another role first.</p></div>
+            <div class="danger-actions">{{ code_field() }}<button type="submit" class="btn btn-danger">Delete role</button></div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

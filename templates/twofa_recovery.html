@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Save your recovery codes - {{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version('style.css') }}">
+</head>
+<body style="background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%); margin: 0;">
+    <div class="login-container">
+        <div class="login-box wide">
+            <div class="login-header">
+                <div class="login-logo">🔑</div>
+                <h1 class="login-title">Save your recovery codes</h1>
+                <p class="login-subtitle">If you lose your phone, each of these codes lets you sign in once. This is the only time they are shown.</p>
+            </div>
+
+            <div class="recovery-grid" id="recoveryCodes">
+                {% for code in codes %}<div class="recovery-code">{{ code }}</div>{% endfor %}
+            </div>
+
+            <div class="recovery-actions">
+                <button type="button" class="btn btn-secondary" id="copyCodes">Copy</button>
+                <button type="button" class="btn btn-secondary" id="downloadCodes">Download</button>
+            </div>
+
+            <p class="setup-note">Keep them somewhere safe, such as a password manager. Anyone who has a code and your password can sign in as you.</p>
+
+            <a href="{{ next_url }}" class="btn btn-primary" style="width: 100%; justify-content: center;">{{ next_label }}</a>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var codes = Array.prototype.map.call(
+                document.querySelectorAll('#recoveryCodes .recovery-code'),
+                function (el) { return el.textContent.trim(); }
+            );
+            var text = codes.join('\n');
+
+            document.getElementById('copyCodes').addEventListener('click', function () {
+                var btn = this;
+                function done() { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500); }
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(done);
+                } else {
+                    var ta = document.createElement('textarea');
+                    ta.value = text; document.body.appendChild(ta); ta.select();
+                    document.execCommand('copy'); document.body.removeChild(ta); done();
+                }
+            });
+
+            document.getElementById('downloadCodes').addEventListener('click', function () {
+                var blob = new Blob([text + '\n'], { type: 'text/plain' });
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'recovery-codes.txt';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            });
+        })();
+    </script>
+</body>
+</html>

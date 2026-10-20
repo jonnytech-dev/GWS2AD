@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Not allowed - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card" style="max-width: 32rem;">
+        <h2 class="card-title">You do not have access to this</h2>
+        <p class="settings-lead">Your account is not allowed to open or change this. If you think it should be, ask the Owner.</p>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Back to the dashboard</a>
+    </div>
+</div>
+{% endblock %}

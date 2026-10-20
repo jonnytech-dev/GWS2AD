@@ -1,0 +1,1451 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <!-- Top section: welcome + main buttons on the left, sync status on the right -->
+    <section class="hero">
+        <div class="hero-main">
+            <h1 class="page-title">Welcome to {{ app_name }}</h1>
+            <p class="page-subtitle">Manage your Google Workspace users and groups, and keep Active Directory in sync.</p>
+
+            <div class="hero-actions dashboard-actions-row">
+                {% if can.create_user %}
+                <button class="btn btn-primary btn-lg" onclick="showModal('addUserModal')">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="10" cy="7.5" r="4"/><path d="M2 20.5c0-3.6 3.6-5.5 8-5.5 1.3 0 2.5.2 3.6.5-.9 1-1.4 2.3-1.4 3.7v1.3H2z"/><path d="M19 15.5v2.5h-2.5v1.8H19v2.5h1.8v-2.5h2.5V18h-2.5v-2.5z"/></svg>
+                    Add User
+                </button>
+                {% endif %}
+                {% if can.create_group %}
+                <button class="btn btn-primary btn-lg" onclick="showModal('addGroupModal')">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 8c0-2.21-1.79-4-4-4S5 5.79 5 8s1.79 4 4 4 4-1.79 4-4zm2 2v2h3v3h2v-3h3v-2h-3V7h-2v3h-3zM1 18v2h16v-2c0-2.66-5.33-4-8-4s-8 1.34-8 4z"/></svg>
+                    Add Group
+                </button>
+                {% endif %}
+                {% if can.preview_sync %}
+                <button class="btn btn-primary btn-lg" id="syncButton" onclick="showSyncPreview()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                    Sync Workspace to AD
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="hero-side">
+            <div class="status-card" id="syncStatusCard">
+                <h3 class="status-title" id="syncTitle">Checking...</h3>
+                <p id="syncMessage">Checking sync status...</p>
+                <p class="status-checked" id="syncChecked" hidden></p>
+                {% if caps.see_ignored %}<a class="status-link" id="ignoredLink" href="{{ url_for('settings_ignored') }}" hidden></a>{% endif %}
+            </div>
+            <div class="tip-wrap">
+                <button class="email-toggle" id="emailToggleBtn" data-on="false" onclick="toggleEmailSetting()" aria-describedby="emailTip" {% if not can.trigger_sync %}disabled{% endif %}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+                    <span class="dot"></span>
+                    <span id="emailToggleLabel">Email notifications: ...</span>
+                </button>
+                <div class="tip" id="emailTip" role="tooltip" hidden>
+                    <strong class="tip-title">Email notifications</strong>
+                    <div class="tip-line on"><span class="tag">ON</span><span>When a sync creates a new account, the person is emailed their username and a temporary password.</span></div>
+                    <div class="tip-line off"><span class="tag">OFF</span><span>Nothing is emailed. The sync shows each temporary password once, so you can pass it on yourself.</span></div>
+                    <div class="tip-hint">{% if can.trigger_sync %}Click to turn on or off.{% else %}Only people who can run a sync can change this.{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Users and Groups -->
+    <div class="dashboard-grid">
+
+        <!-- USERS -->
+        <div class="card panel">
+            <div class="card-head">
+                <span class="icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                </span>
+                <div class="card-head-text">
+                    <h2 class="section-title">Users</h2>
+                    <p class="section-subtitle">Users from Google Workspace</p>
+                </div>
+                <span class="count-pill" id="userCount">Total: 0</span>
+            </div>
+
+            <div class="search-bar">
+                <svg width="20" height="20" class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" id="userSearch" placeholder="Search users by name, email, or group..." oninput="filterTable('users')" autocomplete="off">
+            </div>
+
+            <div class="table-wrapper">
+                <table id="usersTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Member Of</th>
+                            {% if can.edit_user or can.delete_user %}<th>Actions</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr style="height: 6.25rem;">
+                            <td colspan="{{ 4 if (can.edit_user or can.delete_user) else 3 }}" style="text-align: center; color: #999;">
+                                <div class="loading"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-footer">
+                <span class="footer-info" id="usersPaginationInfo">Showing 0 users</span>
+                <div class="footer-right">
+                    <div class="pagination" id="usersPagination"></div>
+                    <button type="button" class="btn-viewall" id="usersViewAllBtn" onclick="toggleViewAll('users')">View All Users <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- GROUPS -->
+        <div class="card panel">
+            <div class="card-head">
+                <span class="icon-circle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/></svg>
+                </span>
+                <div class="card-head-text">
+                    <h2 class="section-title">Groups</h2>
+                    <p class="section-subtitle">Groups from Google Workspace</p>
+                </div>
+                <span class="count-pill" id="groupCount">Total: 0</span>
+            </div>
+
+            <div class="search-bar">
+                <svg width="20" height="20" class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" id="groupSearch" placeholder="Search groups by name or email..." oninput="filterTable('groups')" autocomplete="off">
+            </div>
+
+            <div class="table-wrapper">
+                <table id="groupsTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Members</th>
+                            {% if can.edit_group or can.delete_group %}<th>Actions</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody id="groupsTableBody">
+                        <tr style="height: 6.25rem;">
+                            <td colspan="{{ 4 if (can.edit_group or can.delete_group) else 3 }}" style="text-align: center; color: #999;">
+                                <div class="loading"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-footer">
+                <span class="footer-info" id="groupsPaginationInfo">Showing 0 groups</span>
+                <div class="footer-right">
+                    <div class="pagination" id="groupsPagination"></div>
+                    <button type="button" class="btn-viewall" id="groupsViewAllBtn" onclick="toggleViewAll('groups')">View All Groups <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="addUserModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Add New User</h2>
+            <button class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-input" placeholder="john.doe@example.com" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <input type="text" name="firstName" class="form-input" placeholder="John" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" name="lastName" class="form-input" placeholder="Doe" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-input" placeholder="Enter initial password" required>
+                    <small style="color: #666; display: block; margin-top: 0.25rem;">Min 8 chars, uppercase, lowercase, number, special char</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Organizational Unit</label>
+                    <div id="addUserOuContainer" style="max-height: 12.5rem; overflow-y: auto; border: 1px solid #DDD; border-radius: 4px; padding: 0.5rem;">
+                        <div style="color: #999; padding: 0.5rem;">Loading organizational units...</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Add to Groups (Optional)</label>
+                    <div id="addUserGroupsContainer" style="max-height: 12.5rem; overflow-y: auto; border: 1px solid #DDD; border-radius: 4px; padding: 0.5rem;">
+                        <div style="color: #999; padding: 0.5rem;">Loading groups...</div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitAddUser()">Create User</button>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Preview Modal -->
+<div id="syncPreviewModal" class="modal">
+    <div class="modal-content modal-content-wide" style="max-height: 90vh; overflow-y: auto;">
+        <div class="modal-header">
+            <h2 class="modal-title">Sync Preview</h2>
+            <button class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="syncPreviewContent" style="min-height: 18.75rem;">
+                <div class="loading"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('syncPreviewModal')">Cancel</button>
+            {% if can.trigger_sync %}<button type="button" class="btn btn-primary" id="confirmSyncBtn" onclick="confirmSync()">Confirm sync</button>{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Group Modal -->
+<div id="addGroupModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Add New Group</h2>
+            <button class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="addGroupForm">
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-input" placeholder="engineering@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Group Name</label>
+                    <input type="text" name="name" class="form-input" placeholder="Engineering" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-textarea" placeholder="Engineering team members"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('addGroupModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitAddGroup()">Create Group</button>
+        </div>
+    </div>
+</div>
+
+<!-- User Detail Modal -->
+<div id="userDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" id="userDetailTitle">User Details</h2>
+            <button class="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="userDetailBody">
+            Loading...
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('userDetailModal')">Cancel</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDeleteUser(currentUserEmail)">Delete User</button>
+            <button type="button" class="btn btn-primary" onclick="saveUserChanges()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Group Detail Modal -->
+<div id="groupDetailModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" id="groupDetailTitle">Group Details</h2>
+            <button class="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="groupDetailBody">
+            Loading...
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('groupDetailModal')">Close</button>
+            <button type="button" class="btn btn-danger" id="groupDeleteBtn" onclick="deleteGroup()">Delete Group</button>
+            <button type="button" class="btn btn-primary" onclick="saveGroupChanges()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Account Credentials Modal - shown once, right after a sync, for
+     any users created while email is disabled. These passwords are never
+     logged or stored anywhere - this is the only place they're shown. -->
+<div id="newCredentialsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">New Account Credentials</h2>
+            <button class="modal-close" onclick="closeModal('newCredentialsModal')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="padding: 0.75rem 1rem; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px; margin-bottom: 1rem; font-size: 0.9rem;">
+                ⚠ These temporary passwords are shown <strong>only once, right now</strong>. They are not logged, saved, or shown again anywhere - copy them down before closing this window.
+            </div>
+            <div id="newCredentialsList" style="max-height: 25rem; overflow-y: auto;"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="closeModal('newCredentialsModal')">I've saved these - Close</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = {users: 1, groups: 1};
+let allUsers = [];
+let allGroups = [];
+let currentUserEmail = null;
+let currentGroupEmail = null;
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        console.log('[GWS2AD] Initializing dashboard...');
+        wireRowClicks();
+        
+        // Load all data in parallel
+        await Promise.all([
+            loadSyncStatus().catch(e => console.error('[GWS2AD] Sync status error:', e)),
+            loadUsers(1).catch(e => console.error('[GWS2AD] Users load error:', e)),
+            loadGroups(1).catch(e => console.error('[GWS2AD] Groups load error:', e)),
+            loadEmailSettings().catch(e => console.error('[GWS2AD] Email settings error:', e))
+        ]);
+        
+        console.log('[GWS2AD] Dashboard initialized');
+    } catch (error) {
+        console.error('[GWS2AD] Initialization error:', error);
+    }
+    
+    // Refresh sync status every 30 seconds
+    setInterval(loadSyncStatus, 30000);
+});
+
+// Load sync status
+async function loadSyncStatus() {
+    try {
+        const data = await apiCall('GET', '/api/sync-status');
+        const card = document.getElementById('syncStatusCard');
+        const title = document.getElementById('syncTitle');
+        const message = document.getElementById('syncMessage');
+        const checked = document.getElementById('syncChecked');
+
+        // "Sep 15, 2026 at 1:24 PM"
+        let when = '';
+        if (data.last_checked_time) {
+            const d = new Date(data.last_checked_time);
+            if (!isNaN(d)) {
+                const day = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                when = `${day} at ${time}`;
+            }
+        }
+
+        card.classList.remove('out-of-sync', 'error');
+        const ignoredLink = document.getElementById('ignoredLink');
+        if (ignoredLink) {
+            const n = data.ignored_count || 0;
+            ignoredLink.textContent = `${n} ignored`;
+            ignoredLink.hidden = n === 0;
+        }
+        checked.textContent = when ? `Last checked: ${when}` : '';
+        checked.hidden = !when;
+
+        if (data.status === 'synced') {
+            title.textContent = 'Synced';
+            const ignoredNote = data.last_error ? ` (${data.last_error})` : '';
+            message.textContent = `Google Workspace is aligned with Active Directory.${ignoredNote}`;
+        } else if (data.status === 'error') {
+            card.classList.add('error');
+            title.textContent = 'Connection Error';
+            message.textContent = data.last_error || 'Could not compare GWS and AD right now.';
+            checked.hidden = true;
+        } else {
+            card.classList.add('out-of-sync');
+            title.textContent = 'Out of Sync';
+            message.textContent = data.last_error || 'Differences detected.';
+        }
+    } catch (error) {
+        console.error('Failed to load sync status:', error);
+        document.getElementById('syncStatusCard').classList.add('error');
+        document.getElementById('syncTitle').textContent = 'Error Loading';
+        document.getElementById('syncMessage').textContent = error.message;
+        document.getElementById('syncChecked').hidden = true;
+    }
+}
+
+// Trigger sync
+async function showSyncPreview() {
+    const btn = document.getElementById('syncButton');
+    showModal('syncPreviewModal');
+    
+    try {
+        const preview = await apiCall('GET', '/api/sync-preview');
+        renderSyncPreview(preview);
+    } catch (error) {
+        document.getElementById('syncPreviewContent').innerHTML = `
+            <div style="color: #d32f2f; padding: 1rem; background: #ffebee; border-radius: 4px;">
+                Failed to load sync preview: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Everything in the preview that can be kept in AD or un-kept. The buttons point at one by
+// position, so an email or a DN (commas, equals signs, backslashes) never has to be quoted inside HTML.
+let previewIgnorable = [];
+
+// "Keep in AD" opens a small note box inside the row. The note is optional.
+function keepInAd(i, btn) {
+    const it = previewIgnorable[i];
+    if (!it) return;
+    const row = btn.closest('.sp-row');
+    if (row.querySelector('.sp-note-edit')) { row.querySelector('input').focus(); return; }
+    btn.hidden = true;
+    const box = document.createElement('div');
+    box.className = 'sp-note-edit';
+    box.innerHTML = `<input type="text" maxlength="200" placeholder="Why keep it? (optional)" aria-label="Why keep it?">` +
+        `<button class="sp-btn" type="button">Keep</button><button class="sp-btn sp-btn-quiet" type="button">Cancel</button>`;
+    row.appendChild(box);
+    const input = box.querySelector('input');
+    const save = () => addToIgnoreList(it.type, it.identifier, it.name, input.value);
+    const cancel = () => { box.remove(); btn.hidden = false; };
+    box.querySelectorAll('button')[0].onclick = save;
+    box.querySelectorAll('button')[1].onclick = cancel;
+    input.addEventListener('keydown', ev => { if (ev.key === 'Enter') save(); else if (ev.key === 'Escape') cancel(); });
+    input.focus();
+}
+function stopIgnoring(i) { const it = previewIgnorable[i]; if (it) removeFromIgnoreList(it.type, it.identifier, it.name); }
+
+const SP_SHOW = 5;
+
+function spButton(kind, item) {
+    if (!CAN.trigger_sync) return '';
+    previewIgnorable.push(item);
+    const i = previewIgnorable.length - 1;
+    return kind === 'keep'
+        ? `<button class="sp-btn" onclick="keepInAd(${i}, this)" title="Leave this in Active Directory. The sync will skip it.">Keep in AD</button>`
+        : `<button class="sp-btn sp-btn-quiet" onclick="stopIgnoring(${i})" title="Let the sync delete this again.">Stop ignoring</button>`;
+}
+
+function spRow(cls, main, sub, button) {
+    return `<div class="sp-row ${cls}"><div class="sp-main">${main}${sub ? `<div class="sp-sub">${sub}</div>` : ''}</div>${button || ''}</div>`;
+}
+
+// First few rows, then a "Show all" toggle for the rest
+function spRows(rows) {
+    if (rows.length <= SP_SHOW) return rows.join('');
+    return rows.slice(0, SP_SHOW).join('') +
+        `<div class="sp-rest" hidden>${rows.slice(SP_SHOW).join('')}</div>` +
+        `<button class="sp-more" data-all="${rows.length}" onclick="spToggle(this)">Show all ${rows.length}</button>`;
+}
+
+function spToggle(btn) {
+    const rest = btn.previousElementSibling;
+    rest.hidden = !rest.hidden;
+    btn.textContent = rest.hidden ? `Show all ${btn.dataset.all}` : 'Show fewer';
+}
+
+function spSection(cls, title, count, body, open) {
+    return `<details class="sp-section ${cls}" ${open ? 'open' : ''}><summary><span>${title}</span><span class="sp-count">${count}</span></summary>${body}</details>`;
+}
+
+function spGroupTitle(text, note) {
+    return `<div class="sp-subtitle">${text}${note ? ` <span>${note}</span>` : ''}</div>`;
+}
+
+function setConfirmLabel(deletes) {
+    const btn = document.getElementById('confirmSyncBtn');
+    if (!btn) return;
+    confirmLabel = deletes > 0 ? `Confirm sync (${deletes} deletion${deletes > 1 ? 's' : ''})` : 'Confirm sync';
+    btn.textContent = confirmLabel;
+    btn.classList.toggle('btn-danger', deletes > 0);
+    btn.classList.toggle('btn-primary', deletes === 0);
+}
+let confirmLabel = 'Confirm sync';
+
+function renderSyncPreview(preview) {
+    const box = document.getElementById('syncPreviewContent');
+    if (preview.error) {
+        box.innerHTML = `<div class="sp-error">Error: ${escapeHtml(preview.error)}</div>`;
+        setConfirmLabel(0);
+        return;
+    }
+    const e = escapeHtml;
+    previewIgnorable = [];
+
+    const ousCreate = preview.ous_to_create || [];
+    const ous = preview.ous_to_delete || [];
+    const membership = preview.group_membership_changes || [];
+
+    // What will really be deleted, what is kept on purpose, and what is only kept for now
+    const usersDel = preview.users_to_delete.filter(u => !u.ignored);
+    const groupsDel = preview.groups_to_delete.filter(g => !g.ignored);
+    const ousDel = ous.filter(o => !o.ignored && o.action === 'delete');
+    const ousHeld = ous.filter(o => !o.ignored && o.action === 'not_empty');
+    const usersKept = preview.users_to_delete.filter(u => u.ignored);
+    const groupsKept = preview.groups_to_delete.filter(g => g.ignored);
+    const ousKept = ous.filter(o => o.ignored);
+
+    const nCreate = ousCreate.length + preview.users_to_create.length + preview.groups_to_create.length;
+    const nUpdate = preview.users_to_update.length + preview.groups_to_update.length;
+    const nDelete = usersDel.length + groupsDel.length + ousDel.length;
+    const nIgnored = usersKept.length + groupsKept.length + ousKept.length;
+
+    let html = '';
+
+    // 1. One line that says what this sync will do
+    const chips = [];
+    if (nCreate) chips.push(`<span class="sp-chip sp-create">${nCreate} to create</span>`);
+    if (nUpdate) chips.push(`<span class="sp-chip sp-update">${nUpdate} to update</span>`);
+    if (membership.length) chips.push(`<span class="sp-chip sp-member">${membership.length} membership change${membership.length > 1 ? 's' : ''}</span>`);
+    chips.push(nDelete ? `<span class="sp-chip sp-delete">${nDelete} to delete</span>` : `<span class="sp-chip sp-none">0 to delete</span>`);
+    if (nIgnored) chips.push(`<span class="sp-chip sp-ignored">${nIgnored} ignored</span>`);
+    html += `<div class="sp-summary">${chips.join('')}</div>`;
+
+    if (nCreate + nUpdate + nDelete + membership.length === 0) {
+        html += `<div class="sp-allgood">✓ Everything is already synced.${nIgnored ? ` ${nIgnored} ignored item${nIgnored > 1 ? 's are' : ' is'} left alone.` : ''}</div>`;
+    }
+
+    // 2. Say once what Ignore means
+    if (nDelete + ousHeld.length + nIgnored > 0) {
+        const where = CAN.preview_sync ? ' <a href="/settings/ignored">See the ignore list</a>.' : '';
+        html += `<p class="sp-help"><strong>Keep in AD</strong> leaves an item in Active Directory. The sync skips it until you stop ignoring it.${where}</p>`;
+    }
+
+    // 3. Deletes first. They are the part to check.
+    if (nDelete > 0) {
+        let body = '';
+        if (usersDel.length) {
+            body += spGroupTitle(`Users (${usersDel.length})`) +
+                spRows(usersDel.map(u => spRow('sp-del', e(u.email), '', spButton('keep', {type: 'user', identifier: u.email, name: u.name || u.email}))));
+        }
+        if (groupsDel.length) {
+            body += spGroupTitle(`Groups (${groupsDel.length})`) +
+                spRows(groupsDel.map(g => spRow('sp-del', e(g.name), '', spButton('keep', {type: 'group', identifier: g.sam_name, name: g.name}))));
+        }
+        if (ousDel.length) {
+            body += spGroupTitle(`Organizational units (${ousDel.length})`, 'Deleted only if empty by then') +
+                spRows(ousDel.map(o => spRow('sp-del', e(o.name), e(o.dn), spButton('keep', {type: 'ou', identifier: o.identifier, name: o.name}))));
+        }
+        html += spSection('sp-sec-delete', '🗑 Will be deleted from AD', nDelete, body, true);
+    }
+    // OUs Google no longer has, but which still hold something, so the sync leaves them for now
+    if (ousHeld.length) {
+        html += spSection('sp-sec-held', 'Not deleted yet: still in use', ousHeld.length, spRows(ousHeld.map(o =>
+            spRow('sp-held', e(o.name), `${e(o.dn)}<br>Still holds ${o.remaining} object${o.remaining > 1 ? 's' : ''}.`))), true);
+    }
+
+    // 4. Creates, updates and membership start closed unless they are short
+    if (nCreate) {
+        let body = '';
+        if (ousCreate.length) body += spGroupTitle(`Organizational units (${ousCreate.length})`) + spRows(ousCreate.map(o => spRow('sp-new', e(o.name), e(o.dn))));
+        if (preview.users_to_create.length) body += spGroupTitle(`Users (${preview.users_to_create.length})`) + spRows(preview.users_to_create.map(u => spRow('sp-new', e(u.email))));
+        if (preview.groups_to_create.length) body += spGroupTitle(`Groups (${preview.groups_to_create.length})`) + spRows(preview.groups_to_create.map(g => spRow('sp-new', `${e(g.name)} <span class="sp-dim">(${e(g.email)})</span>`)));
+        html += spSection('sp-sec-create', '✓ Will be created', nCreate, body, nCreate <= 3);
+    }
+    if (nUpdate) {
+        let body = '';
+        if (preview.users_to_update.length) {
+            body += spGroupTitle(`Users (${preview.users_to_update.length})`) + spRows(preview.users_to_update.map(u => {
+                const labels = [];
+                if (u.changes) {
+                    if (u.changes.firstName !== undefined) labels.push('first name');
+                    if (u.changes.lastName !== undefined) labels.push('last name');
+                    if (u.changes.organizationalUnit !== undefined) labels.push(`moves to ${e(u.changes.organizationalUnit)}`);
+                }
+                return spRow('sp-upd', `${e(u.email)}${labels.length ? ` <span class="sp-dim">(${labels.join(', ')})</span>` : ''}`);
+            }));
+        }
+        if (preview.groups_to_update.length) body += spGroupTitle(`Groups (${preview.groups_to_update.length})`) + spRows(preview.groups_to_update.map(g => spRow('sp-upd', e(g.name))));
+        html += spSection('sp-sec-update', '🔄 Will be updated', nUpdate, body, nUpdate <= 3);
+    }
+    if (membership.length) {
+        const rows = membership.map(c => {
+            const add = (c.add || []).length ? `<div class="sp-add">+ Add: ${c.add.map(e).join(', ')}</div>` : '';
+            const rem = (c.remove || []).length ? `<div class="sp-remove">− Remove: ${c.remove.map(e).join(', ')}</div>` : '';
+            return spRow('sp-mem', `<strong>${e(c.name)}</strong>${add}${rem}`);
+        });
+        html += spSection('sp-sec-member', '👥 Group membership', membership.length, spRows(rows), membership.length <= 3);
+    }
+
+    // 5. Ignored items sit at the bottom, out of the way, with a way back
+    if (nIgnored) {
+        const why = n => n ? `<span class="sp-why">Why: ${e(n)}</span>` : '';
+        const rows = usersKept.map(u => spRow('sp-kept', e(u.email), why(u.note), spButton('stop', {type: 'user', identifier: u.email, name: u.name || u.email})))
+            .concat(groupsKept.map(g => spRow('sp-kept', e(g.name), why(g.note), spButton('stop', {type: 'group', identifier: g.sam_name, name: g.name}))))
+            .concat(ousKept.map(o => spRow('sp-kept', e(o.name), `${e(o.dn)}${o.note ? '<br>' : ''}${why(o.note)}`, spButton('stop', {type: 'ou', identifier: o.identifier, name: o.name}))));
+        html += spSection('sp-sec-ignored', 'Ignored: kept in AD', nIgnored, spRows(rows), true);
+    }
+
+    box.innerHTML = html;
+    setConfirmLabel(nDelete);
+}
+
+async function addToIgnoreList(type, identifier, name, note) {
+    try {
+        await apiCall('POST', '/api/ignored-items', {
+            type: type,
+            identifier: identifier,
+            reason: note || ''
+        });
+        showAlert(`${name} added to ignore list`, 'success');
+        // Reload preview
+        const preview = await apiCall('GET', '/api/sync-preview');
+        renderSyncPreview(preview);
+    } catch (error) {
+        showAlert('Failed to add to ignore list: ' + error.message, 'error');
+    }
+}
+
+async function removeFromIgnoreList(type, identifier, name) {
+    try {
+        // Identifier is often an email (contains @ and .) - must be
+        // URL-encoded since it's a path segment, not a query param
+        await apiCall('DELETE', `/api/ignored-items/${type}/${encodeURIComponent(identifier)}`);
+        showToast(`${name} removed from ignore list`, 'success');
+        // Reload preview and status - this item is now back to being
+        // an actionable difference, which may change the sync status
+        const preview = await apiCall('GET', '/api/sync-preview');
+        renderSyncPreview(preview);
+        await loadSyncStatus();
+    } catch (error) {
+        showToast('Failed to remove from ignore list: ' + error.message, 'error');
+    }
+}
+
+async function confirmSync() {
+    const btn = document.getElementById('confirmSyncBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loading"></div> Syncing...';
+    
+    try {
+        const data = await apiCall('POST', '/api/sync');
+        closeModal('syncPreviewModal');
+        
+        const failures = (data.differences || []).filter(d => d.action && d.action.endsWith('_failed'));
+        
+        if (failures.length === 0) {
+            showToast('Sync completed successfully!', 'success');
+        } else {
+            // Something didn't actually apply - say so specifically instead
+            // of a blanket "success" that hides what silently failed
+            const actionLabels = {
+                create_failed: 'Failed to create',
+                update_failed: 'Failed to update',
+                move_failed: 'Failed to move',
+                delete_failed: 'Failed to delete',
+                add_member_failed: 'Failed to add member to',
+                remove_member_failed: 'Failed to remove member from'
+            };
+            showToast(`Sync finished with ${failures.length} issue${failures.length > 1 ? 's' : ''} - see details below`, 'error', 6000);
+            failures.forEach(f => {
+                const label = actionLabels[f.action] || 'Issue with';
+                const identifier = f.email || f.name || '';
+                const reason = f.error ? `: ${f.error}` : '';
+                showToast(`⚠ ${label} ${f.type} ${identifier}${reason}`, 'error', 8000);
+            });
+        }
+        
+        await loadSyncStatus();
+        await loadUsers(1);
+        await loadGroups(1);
+        
+        // Show any new users' temp passwords - this is the ONLY place
+        // they're ever surfaced, so this has to be shown clearly and
+        // requires an explicit dismiss, not a toast that could be missed
+        if (data.pending_credentials && data.pending_credentials.length > 0) {
+            renderNewCredentialsModal(data.pending_credentials);
+        }
+    } catch (error) {
+        showToast('Sync failed: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = confirmLabel;
+    }
+}
+
+function renderNewCredentialsModal(credentials) {
+    const container = document.getElementById('newCredentialsList');
+    container.innerHTML = credentials.map(cred => `
+        <div style="padding: 0.75rem; border: 1px solid #DDD; border-radius: 4px; margin-bottom: 0.75rem;">
+            <div style="font-weight: 600;">${cred.name}</div>
+            <div style="color: #666; font-size: 0.85rem; margin-bottom: 0.5rem;">${cred.email}</div>
+            <div style="font-family: monospace; background: #F5F5F5; padding: 0.5rem; border-radius: 4px; font-size: 0.95rem;">${cred.temp_password}</div>
+        </div>
+    `).join('');
+    showModal('newCredentialsModal');
+}
+
+// Load email settings
+async function loadEmailSettings() {
+    const btn = document.getElementById('emailToggleBtn');
+    const label = document.getElementById('emailToggleLabel');
+    try {
+        const data = await apiCall('GET', '/api/settings/email');
+        const on = !!data.send_emails;
+        btn.dataset.on = on ? 'true' : 'false';
+        btn.classList.toggle('on', on);
+        btn.parentElement.classList.toggle('is-on', on);   // lets the hover tip highlight the active line
+        label.textContent = `Email notifications: ${on ? 'ON' : 'OFF'}`;
+    } catch (error) {
+        console.error('Failed to load email settings:', error);
+        label.textContent = 'Email notifications: unavailable';
+        showToast('Failed to load email settings: ' + error.message, 'error');
+    }
+}
+
+// Toggle email setting
+async function toggleEmailSetting() {
+    const btn = document.getElementById('emailToggleBtn');
+    const currentlyOn = btn.dataset.on === 'true';
+
+    try {
+        await apiCall('POST', '/api/settings/email', { send_emails: !currentlyOn });
+        showToast(`Email sending ${currentlyOn ? 'disabled' : 'enabled'}`, 'success');
+        await loadEmailSettings();
+    } catch (error) {
+        showToast('Failed to toggle email: ' + error.message, 'error');
+    }
+}
+
+// ---------------------------------------------------------------------
+// Users and Groups lists
+// ---------------------------------------------------------------------
+
+// Rows per page in each card
+const PAGE_SIZE = 8;
+
+// What this person may do (the server enforces it too; this only hides buttons)
+const CAN = {{ can|tojson }};
+const COLS = {
+    users: (CAN.edit_user || CAN.delete_user) ? 4 : 3,
+    groups: (CAN.edit_group || CAN.delete_group) ? 4 : 3
+};
+
+// Small icons used inside the generated table rows and pagination
+const EDIT_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+const TRASH_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+const CHEVRON_LEFT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>';
+const CHEVRON_RIGHT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
+const ARROW_RIGHT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>';
+const ARROW_LEFT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>';
+
+// What each list is currently showing (used for the "Showing ..." text)
+const listState = {
+    users:  { total: 0, shown: 0 },
+    groups: { total: 0, shown: 0 }
+};
+// True when typing in a search box switched the list to "all rows" by itself
+const searchExpanded = { users: false, groups: false };
+const searchTimers = {};
+
+// Makes text safe to put inside generated HTML
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Picks a stable avatar color for a user, so it never changes between loads
+const AVATAR_COLORS = ['mint', 'mint', 'blue', 'blue', 'pink', 'lavender'];
+function avatarColor(key) {
+    let hash = 0;
+    for (const ch of String(key)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+// First group as a chip, plus a "+N" chip for the rest
+function renderChips(names) {
+    if (!names.length) return '<div class="chips"><span class="chip none">None</span></div>';
+    const first = `<span class="chip" title="${escapeHtml(names[0])}">${escapeHtml(names[0])}</span>`;
+    const more = names.length > 1
+        ? `<span class="chip more" title="${escapeHtml(names.slice(1).join(', '))}">+${names.length - 1}</span>`
+        : '';
+    return `<div class="chips">${first}${more}</div>`;
+}
+
+// The Edit and Delete buttons at the end of a row, only the ones this person may use
+function actionsCell(canEdit, canDelete) {
+    if (!canEdit && !canDelete) return '';
+    return `<td class="col-actions"><div class="table-actions">` +
+        (canEdit ? `<button type="button" class="row-btn edit" data-action="edit">${EDIT_ICON} Edit</button>` : '') +
+        (canDelete ? `<button type="button" class="row-btn delete" data-action="delete">${TRASH_ICON} Delete</button>` : '') +
+        `</div></td>`;
+}
+
+// Clicking a row (or its Edit button) opens the editor; Delete asks first
+function wireRowClicks() {
+    document.getElementById('usersTableBody').addEventListener('click', (e) => {
+        const row = e.target.closest('tr[data-email]');
+        if (!row) return;
+        const action = e.target.closest('[data-action]');
+        if (action && action.dataset.action === 'delete') { if (CAN.delete_user) confirmDeleteUser(row.dataset.email); }
+        else if (CAN.edit_user) showUserDetail(row.dataset.email);
+    });
+    document.getElementById('groupsTableBody').addEventListener('click', (e) => {
+        const row = e.target.closest('tr[data-email]');
+        if (!row) return;
+        const action = e.target.closest('[data-action]');
+        if (action && action.dataset.action === 'delete') { if (CAN.delete_group) confirmDeleteGroup(row.dataset.email); }
+        else if (CAN.edit_group) showGroupDetail(row.dataset.email);
+    });
+}
+
+// "Showing 1–8 of 28 users"
+function updateFooterInfo(type, page) {
+    const el = document.getElementById(`${type}PaginationInfo`);
+    const { total, shown } = listState[type];
+    const noun = type;
+    const query = document.getElementById(type === 'users' ? 'userSearch' : 'groupSearch').value.trim();
+    if (query) {
+        el.textContent = `Showing ${shown} of ${total} ${noun}`;
+    } else if (page === 'all') {
+        el.textContent = `Showing all ${total} ${noun}`;
+    } else if (total === 0) {
+        el.textContent = `Showing 0 ${noun}`;
+    } else {
+        el.textContent = `Showing ${(page - 1) * PAGE_SIZE + 1}\u2013${Math.min(page * PAGE_SIZE, total)} of ${total} ${noun}`;
+    }
+}
+
+// Page numbers with "…" gaps, so a long list doesn't produce a long row
+function pageNumbers(current, pages) {
+    if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+    const keep = new Set([1, pages, current - 1, current, current + 1]);
+    if (current <= 3) [2, 3, 4].forEach(n => keep.add(n));
+    if (current >= pages - 2) [pages - 3, pages - 2, pages - 1].forEach(n => keep.add(n));
+    const nums = [...keep].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b);
+    const out = [];
+    let prev = 0;
+    for (const n of nums) {
+        if (n - prev > 1) out.push('…');
+        out.push(n);
+        prev = n;
+    }
+    return out;
+}
+
+// Page buttons plus the View All button under each table
+function renderPagination(type, total, pages, current) {
+    const container = document.getElementById(`${type}Pagination`);
+    const viewAll = document.getElementById(`${type}ViewAllBtn`);
+    const loader = type === 'users' ? 'loadUsers' : 'loadGroups';
+    const noun = type === 'users' ? 'Users' : 'Groups';
+
+    if (current === 'all') {
+        container.innerHTML = '';
+        viewAll.hidden = false;
+        viewAll.innerHTML = `${ARROW_LEFT} Show Pages`;
+        return;
+    }
+
+    viewAll.hidden = total <= PAGE_SIZE;
+    viewAll.innerHTML = `View All ${noun} ${ARROW_RIGHT}`;
+
+    if (pages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const html = [];
+    html.push(current > 1
+        ? `<a href="#" class="arrow" aria-label="Previous page" onclick="${loader}(${current - 1}); return false;">${CHEVRON_LEFT}</a>`
+        : `<span class="arrow disabled" aria-hidden="true">${CHEVRON_LEFT}</span>`);
+    for (const n of pageNumbers(current, pages)) {
+        if (n === '…') html.push('<span class="ellipsis">…</span>');
+        else if (n === current) html.push(`<span class="active">${n}</span>`);
+        else html.push(`<a href="#" onclick="${loader}(${n}); return false;">${n}</a>`);
+    }
+    html.push(current < pages
+        ? `<a href="#" class="arrow" aria-label="Next page" onclick="${loader}(${current + 1}); return false;">${CHEVRON_RIGHT}</a>`
+        : `<span class="arrow disabled" aria-hidden="true">${CHEVRON_RIGHT}</span>`);
+    container.innerHTML = html.join('');
+}
+
+// View All <-> Show Pages
+async function toggleViewAll(type) {
+    const loader = type === 'users' ? loadUsers : loadGroups;
+    if (currentPage[type] === 'all') {
+        // Back to pages. Clear the search too, since a search needs every row.
+        document.getElementById(type === 'users' ? 'userSearch' : 'groupSearch').value = '';
+        searchExpanded[type] = false;
+        await loader(1);
+    } else {
+        await loader('all');
+    }
+}
+
+// Load users
+async function loadUsers(page = 1) {
+    try {
+        const url = page === 'all'
+            ? '/api/users?page=1&limit=10000'  // everyone, in one request
+            : `/api/users?page=${page}&limit=${PAGE_SIZE}`;
+
+        const data = await apiCall('GET', url);
+        allUsers = data.users;
+        currentPage.users = page;
+        listState.users.total = data.total;
+
+        renderUsersTable();
+        renderPagination('users', data.total, data.pages, page);
+        document.getElementById('userCount').textContent = `Total: ${data.total}`;
+        applyFilter('users', page);
+    } catch (error) {
+        showToast('Failed to load users: ' + error.message, 'error');
+    }
+}
+
+// Render users table
+function renderUsersTable() {
+    const tbody = document.getElementById('usersTableBody');
+
+    if (allUsers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${COLS.users}" style="text-align: center; color: #999; padding: 2rem; cursor: default;">No users found</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = allUsers.map(user => {
+        const name = user.fullName || user.email;
+        const initials = name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2) || '?';
+        const groups = user.memberOfNames || [];
+        const searchText = [name, user.email, ...groups].join(' ').toLowerCase();
+
+        return `
+            <tr data-email="${escapeHtml(user.email)}" data-search="${escapeHtml(searchText)}">
+                <td>
+                    <div class="user-cell">
+                        <span class="avatar ${avatarColor(user.email)}">${escapeHtml(initials)}</span>
+                        <span class="col-name">${escapeHtml(name)}</span>
+                    </div>
+                </td>
+                <td class="col-email">${escapeHtml(user.email)}</td>
+                <td>${renderChips(groups)}</td>
+                ${actionsCell(CAN.edit_user, CAN.delete_user)}
+            </tr>
+        `;
+    }).join('');
+}
+
+// Load groups
+async function loadGroups(page = 1) {
+    try {
+        const url = page === 'all'
+            ? '/api/groups?page=1&limit=10000'  // everything, in one request
+            : `/api/groups?page=${page}&limit=${PAGE_SIZE}`;
+
+        const data = await apiCall('GET', url);
+        allGroups = data.groups;
+        currentPage.groups = page;
+        listState.groups.total = data.total;
+
+        renderGroupsTable();
+        renderPagination('groups', data.total, data.pages, page);
+        document.getElementById('groupCount').textContent = `Total: ${data.total}`;
+        applyFilter('groups', page);
+    } catch (error) {
+        showToast('Failed to load groups: ' + error.message, 'error');
+    }
+}
+
+// Render groups table
+function renderGroupsTable() {
+    const tbody = document.getElementById('groupsTableBody');
+
+    if (allGroups.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${COLS.groups}" style="text-align: center; color: #999; padding: 2rem; cursor: default;">No groups found</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = allGroups.map(group => {
+        const searchText = `${group.name} ${group.email}`.toLowerCase();
+        return `
+            <tr data-email="${escapeHtml(group.email)}" data-search="${escapeHtml(searchText)}">
+                <td class="col-name">${escapeHtml(group.name)}</td>
+                <td class="col-email">${escapeHtml(group.email)}</td>
+                <td class="col-count">${group.memberCount || 0}</td>
+                ${actionsCell(CAN.edit_group, CAN.delete_group)}
+            </tr>
+        `;
+    }).join('');
+}
+
+// Search boxes. Typing waits a moment, then filters. A search has to look at
+// every row (not just this page), so the first keystroke loads them all, and
+// clearing the box goes back to pages.
+function filterTable(type) {
+    clearTimeout(searchTimers[type]);
+    searchTimers[type] = setTimeout(() => runSearch(type), 150);
+}
+
+async function runSearch(type) {
+    const query = document.getElementById(type === 'users' ? 'userSearch' : 'groupSearch').value.trim();
+    const loader = type === 'users' ? loadUsers : loadGroups;
+
+    if (query && currentPage[type] !== 'all') {
+        searchExpanded[type] = true;
+        await loader('all');      // this also applies the filter
+        return;
+    }
+    if (!query && searchExpanded[type]) {
+        searchExpanded[type] = false;
+        await loader(1);          // back to the first page
+        return;
+    }
+    applyFilter(type, currentPage[type]);
+}
+
+// Hides rows that don't match the search box, and updates the "Showing ..." text
+function applyFilter(type, page) {
+    const query = document.getElementById(type === 'users' ? 'userSearch' : 'groupSearch').value.trim().toLowerCase();
+    const tbody = document.getElementById(`${type}TableBody`);
+    const rows = tbody.querySelectorAll('tr[data-search]');
+
+    let shown = 0;
+    rows.forEach(row => {
+        const match = !query || row.dataset.search.includes(query);
+        row.style.display = match ? '' : 'none';
+        if (match) shown++;
+    });
+    listState[type].shown = shown;
+
+    const old = tbody.querySelector('tr.no-match');
+    if (old) old.remove();
+    if (query && rows.length > 0 && shown === 0) {
+        const tr = document.createElement('tr');
+        tr.className = 'no-match';
+        tr.innerHTML = `<td colspan="${COLS[type]}" style="text-align: center; color: #999; padding: 2rem; cursor: default;">No ${type} match your search</td>`;
+        tbody.appendChild(tr);
+    }
+
+    updateFooterInfo(type, page === undefined ? currentPage[type] : page);
+}
+
+// Submit add user
+async function submitAddUser() {
+    const form = document.getElementById('addUserForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Collect selected groups
+    const selectedGroups = [];
+    document.querySelectorAll('input[name="userGroups"]:checked').forEach(checkbox => {
+        selectedGroups.push(checkbox.value);
+    });
+    data.groups = selectedGroups;
+    
+    // Collect selected OU (defaults to root if none somehow selected)
+    data.orgUnitPath = document.querySelector('input[name="addUserOu"]:checked')?.value || '/';
+    
+    try {
+        await apiCall('POST', '/api/users', data);
+        showAlert('User created successfully!', 'success');
+        form.reset();
+        closeModal('addUserModal');
+        loadUsers(1);
+        loadGroups(1);
+    } catch (error) {
+        showAlert('Failed to create user: ' + error.message, 'error');
+    }
+}
+
+// Submit add group
+async function submitAddGroup() {
+    const form = document.getElementById('addGroupForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        await apiCall('POST', '/api/groups', data);
+        showAlert('Group created successfully!', 'success');
+        form.reset();
+        closeModal('addGroupModal');
+        loadUsers(1);
+        loadGroups(1);
+    } catch (error) {
+        showAlert('Failed to create group: ' + error.message, 'error');
+    }
+}
+
+// Load groups for Add User modal
+async function loadGroupsForAddUserModal() {
+    try {
+        const data = await apiCall('GET', '/api/groups?page=1&limit=1000');
+        const groups = data.groups || [];
+        
+        const container = document.getElementById('addUserGroupsContainer');
+        
+        if (groups.length === 0) {
+            container.innerHTML = '<div style="color: #999; padding: 0.5rem;">No groups available</div>';
+            return;
+        }
+        
+        let html = '';
+        groups.forEach(group => {
+            html += `
+                <div style="padding: 0.5rem; border-bottom: 1px solid #EEE;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" name="userGroups" value="${group.email}" style="margin-right: 0.5rem; cursor: pointer;">
+                        <span>${group.name}</span>
+                        <small style="color: #999; margin-left: auto;">${group.email}</small>
+                    </label>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    } catch (error) {
+        document.getElementById('addUserGroupsContainer').innerHTML = '<div style="color: #999; padding: 0.5rem;">Failed to load groups</div>';
+    }
+}
+
+// --- OU tree picker (shared by Add User and Edit User modals) ---
+
+function buildOuTree(ous) {
+    const byPath = {};
+    ous.forEach(ou => { byPath[ou.path] = { ...ou, children: [] }; });
+    let root = byPath['/'] || null;
+    ous.forEach(ou => {
+        if (ou.path === '/') return;
+        const parent = byPath[ou.parentPath];
+        if (parent) {
+            parent.children.push(byPath[ou.path]);
+        } else if (root) {
+            // Parent missing from the list for some reason - attach to
+            // root rather than dropping this OU from the tree entirely
+            root.children.push(byPath[ou.path]);
+        }
+    });
+    return root;
+}
+
+function renderOuTreeNode(node, selectedPath, radioName, depth) {
+    const indent = depth * 20;
+    const isSelected = node.path === selectedPath;
+    let html = `
+        <label style="display: flex; align-items: center; padding: 0.4rem 0.5rem; padding-left: ${8 + indent}px; cursor: pointer; border-radius: 4px;">
+            <input type="radio" name="${radioName}" value="${node.path}" ${isSelected ? 'checked' : ''} style="margin-right: 0.5rem; cursor: pointer;">
+            <span style="margin-right: 0.4rem;">📁</span>
+            <span>${node.name}</span>
+        </label>
+    `;
+    node.children
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(child => {
+            html += renderOuTreeNode(child, selectedPath, radioName, depth + 1);
+        });
+    return html;
+}
+
+function renderOuTree(ous, selectedPath, radioName) {
+    const root = buildOuTree(ous);
+    if (!root) return '<div style="color: #999; padding: 0.5rem;">No organizational units found</div>';
+    return renderOuTreeNode(root, selectedPath, radioName, 0);
+}
+
+async function loadOusForAddUserModal() {
+    try {
+        const data = await apiCall('GET', '/api/org-units');
+        const ous = data.orgUnits || [];
+        document.getElementById('addUserOuContainer').innerHTML = renderOuTree(ous, '/', 'addUserOu');
+    } catch (error) {
+        document.getElementById('addUserOuContainer').innerHTML = '<div style="color: #999; padding: 0.5rem;">Failed to load organizational units</div>';
+    }
+}
+
+// Show user detail
+async function showUserDetail(email) {
+    currentUserEmail = email;
+    showModal('userDetailModal');
+    document.getElementById('userDetailTitle').textContent = 'Edit User';
+    document.getElementById('userDetailBody').innerHTML = '<div class="loading"></div>';
+    
+    try {
+        const userResponse = await apiCall('GET', `/api/users/${email}`);
+        const groupsResponse = await apiCall('GET', '/api/groups?page=1&limit=1000');
+        const ousResponse = await apiCall('GET', '/api/org-units');
+        const user = userResponse.gws;
+        const allGroups = groupsResponse.groups || [];
+        const allOus = ousResponse.orgUnits || [];
+        const userGroups = user.memberOf || [];
+        
+        let html = `
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <div style="padding: 0.75rem; background: #F5F5F5; border-radius: 4px;">${user.email}</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Organizational Unit</label>
+                <div id="editUserOuContainer" style="max-height: 12.5rem; overflow-y: auto; border: 1px solid #DDD; border-radius: 4px; padding: 0.5rem;">
+                    ${renderOuTree(allOus, user.orgUnitPath || '/', 'editUserOu')}
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <input type="text" id="editFirstName" class="form-input" value="${user.firstName || ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" id="editLastName" class="form-input" value="${user.lastName || ''}">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Change Password (leave empty to keep current)</label>
+                <input type="password" id="editPassword" class="form-input" placeholder="New password">
+                <small style="color: #666; display: block; margin-top: 0.25rem;">Min 8 chars, uppercase, lowercase, number, special char</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Groups</label>
+                <div style="max-height: 15.625rem; overflow-y: auto; border: 1px solid #DDD; border-radius: 4px; padding: 0.5rem;">
+        `;
+        
+        if (allGroups.length === 0) {
+            html += '<div style="color: #999; padding: 0.5rem;">No groups available</div>';
+        } else {
+            allGroups.forEach(group => {
+                const isChecked = userGroups.includes(group.email);
+                html += `
+                    <div style="padding: 0.5rem; border-bottom: 1px solid #EEE;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" name="editUserGroups" value="${group.email}" ${isChecked ? 'checked' : ''} style="margin-right: 0.5rem; cursor: pointer;">
+                            <span>${group.name}</span>
+                        </label>
+                    </div>
+                `;
+            });
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('userDetailBody').innerHTML = html;
+    } catch (error) {
+        document.getElementById('userDetailBody').innerHTML = `<div style="color: #d32f2f; padding: 1rem; background: #ffebee; border-radius: 4px;">Failed to load user details</div>`;
+    }
+}
+
+// Save user changes
+async function saveUserChanges() {
+    try {
+        const firstName = document.getElementById('editFirstName')?.value || '';
+        const lastName = document.getElementById('editLastName')?.value || '';
+        const password = document.getElementById('editPassword')?.value || '';
+        
+        // Collect selected groups
+        const selectedGroups = [];
+        document.querySelectorAll('input[name="editUserGroups"]:checked').forEach(checkbox => {
+            selectedGroups.push(checkbox.value);
+        });
+        
+        // Collect selected OU
+        const selectedOu = document.querySelector('input[name="editUserOu"]:checked')?.value;
+        
+        const data = {
+            firstName: firstName,
+            lastName: lastName,
+            groups: selectedGroups
+        };
+        
+        if (selectedOu) {
+            data.orgUnitPath = selectedOu;
+        }
+        
+        // Only include password if provided
+        if (password) {
+            data.password = password;
+        }
+        
+        const response = await apiCall('PUT', `/api/users/${currentUserEmail}`, data);
+        
+        if (response.warnings && response.warnings.length > 0) {
+            // Something partially failed (e.g. GWS succeeded but AD didn't) -
+            // show each warning so it's not silently missed
+            response.warnings.forEach(warning => {
+                showToast('⚠ ' + warning, 'error', 6000);
+            });
+        } else {
+            showToast('User updated successfully!', 'success');
+        }
+        
+        closeModal('userDetailModal');
+        
+        // Refresh the users table
+        await loadUsers(1);
+    } catch (error) {
+        showToast('Failed to save changes: ' + error.message, 'error');
+    }
+}
+
+// Show group detail
+async function showGroupDetail(email) {
+    currentGroupEmail = email;
+    showModal('groupDetailModal');
+    document.getElementById('groupDetailTitle').textContent = 'Group Details';
+    document.getElementById('groupDetailBody').innerHTML = '<div class="loading"></div>';
+    
+    try {
+        const data = await apiCall('GET', `/api/groups/${email}`);
+        const group = data.gws;
+        const groupMembers = group.members || [];
+        
+        // Fetch a full, current list of users directly - the same
+        // approach the Edit User modal uses for its group checkboxes -
+        // rather than relying on the global allUsers variable, which
+        // may only hold whatever page of users was last viewed.
+        const usersResponse = await apiCall('GET', '/api/users?page=1&limit=1000');
+        const allUsersFull = usersResponse.users || [];
+        
+        let html = `
+            <div class="form-group">
+                <label class="form-label">Group Name</label>
+                <input type="text" id="editGroupName" class="form-input" value="${group.name}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <div style="padding: 0.75rem; background: #F5F5F5; border-radius: 4px;">${group.email}</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="editGroupDescription" class="form-textarea">${group.description || ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Members (${groupMembers.length})</label>
+                <div style="max-height: 15.625rem; overflow-y: auto; border: 1px solid #DDD; border-radius: 4px; padding: 0.5rem;">
+        `;
+        
+        if (allUsersFull.length === 0) {
+            html += '<div style="color: #999; padding: 0.5rem;">No users available</div>';
+        } else {
+            allUsersFull.forEach(u => {
+                const isChecked = groupMembers.includes(u.email);
+                html += `
+                    <div style="padding: 0.5rem; border-bottom: 1px solid #EEE;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" name="editGroupMembers" value="${u.email}" ${isChecked ? 'checked' : ''} style="margin-right: 0.5rem; cursor: pointer;">
+                            <span>${u.fullName || u.email}</span>
+                        </label>
+                    </div>
+                `;
+            });
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('groupDetailBody').innerHTML = html;
+    } catch (error) {
+        document.getElementById('groupDetailBody').innerHTML = `<div class="alert alert-error">Failed to load group details</div>`;
+    }
+}
+
+// Save group changes (name, description, member list)
+async function saveGroupChanges() {
+    try {
+        const name = document.getElementById('editGroupName')?.value || '';
+        const description = document.getElementById('editGroupDescription')?.value || '';
+        
+        const selectedMembers = [];
+        document.querySelectorAll('input[name="editGroupMembers"]:checked').forEach(checkbox => {
+            selectedMembers.push(checkbox.value);
+        });
+        
+        const data = {
+            name: name,
+            description: description,
+            members: selectedMembers
+        };
+        
+        const result = await apiCall('PUT', `/api/groups/${currentGroupEmail}`, data);
+        
+        if (result.warnings && result.warnings.length > 0) {
+            showToast(`Group updated with warnings: ${result.warnings.join('; ')}`, 'warning');
+        } else {
+            showToast('Group updated successfully!', 'success');
+        }
+        
+        closeModal('groupDetailModal');
+        loadGroups(1);
+    } catch (error) {
+        showToast('Failed to update group: ' + error.message, 'error');
+    }
+}
+
+// Delete user
+async function deleteUser() {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    
+    try {
+        await apiCall('DELETE', `/api/users/${currentUserEmail}`);
+        showAlert('User deleted successfully!', 'success');
+        closeModal('userDetailModal');
+        loadUsers(1);
+    } catch (error) {
+        showAlert('Failed to delete user: ' + error.message, 'error');
+    }
+}
+
+// Delete group
+async function deleteGroup() {
+    if (!confirm('Are you sure you want to delete this group?')) return;
+    
+    try {
+        await apiCall('DELETE', `/api/groups/${currentGroupEmail}`);
+        showAlert('Group deleted successfully!', 'success');
+        closeModal('groupDetailModal');
+        loadGroups(1);
+    } catch (error) {
+        showAlert('Failed to delete group: ' + error.message, 'error');
+    }
+}
+
+// Confirm delete
+function confirmDeleteUser(email) {
+    if (confirm('Delete user ' + email + '?')) {
+        currentUserEmail = email;
+        deleteUser();
+    }
+}
+
+function confirmDeleteGroup(email) {
+    if (confirm('Delete group ' + email + '?')) {
+        currentGroupEmail = email;
+        deleteGroup();
+    }
+}
+</script>
+{% endblock %}

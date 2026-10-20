@@ -1,0 +1,45 @@
+GWS2AD License (Free to Use, No Modification)
+
+Copyright (c) 2026 Jonathan Stier. All rights reserved except as stated below.
+
+1. PERMISSION TO USE
+   You may download, install, and run this software free of charge, for any
+   purpose, including inside a business, school, church, or other
+   organization.
+
+2. WHAT YOU MAY NOT DO
+   Without written permission from the copyright holder, you may not:
+   a. modify, adapt, translate, or create derivative works of the software or
+      its source code;
+   b. sell, rent, lease, or sublicense the software, or charge for access to
+      it;
+   c. remove or change this license or any copyright notice.
+
+3. WHAT COUNTS AS MODIFICATION
+   Changing the settings, the .env file, or the data the software stores is
+   normal use and is allowed. Editing the code, templates, styles, scripts, or
+   documentation is modification and is not allowed.
+
+4. REDISTRIBUTION
+   You may share unmodified copies of the software, as long as you include
+   this license file with every copy.
+
+5. THIRD-PARTY COMPONENTS
+   Bundled third-party components, such as fonts and Python packages, stay
+   under their own licenses. See the license files that ship with them.
+
+6. OWNERSHIP
+   The software is licensed, not sold. The copyright holder keeps all rights
+   not expressly granted here. The copyright holder may change the license
+   terms for future versions.
+
+7. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+   HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE
+   SOFTWARE OR ITS USE.
+
+8. TERMINATION
+   This license ends automatically if you break any of its terms. When it
+   ends, you must stop using the software and delete your copies.

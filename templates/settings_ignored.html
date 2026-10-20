@@ -1,0 +1,103 @@
+{% extends "settings_base.html" %}
+
+{% block settings_body %}
+<div class="settings-wide">
+    <div class="card">
+        <h2 class="card-title">Ignore list</h2>
+        <p class="settings-lead">
+            Anything on this list stays in Active Directory, even when it is not in Google Workspace.
+            The sync skips it until you remove it here. Add items from the sync preview with <strong>Keep in AD</strong>, and say why, so the next person knows.
+        </p>
+
+        {% if items %}
+        <div class="ignore-tools">
+            <div class="search-bar">
+                <svg width="20" height="20" class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="search" id="ignoreSearch" placeholder="Search the ignore list..." autocomplete="off">
+            </div>
+            <select id="ignoreType" aria-label="Filter by type">
+                <option value="">All types</option>
+                <option value="user">Users</option>
+                <option value="group">Groups</option>
+                <option value="ou">Organizational units</option>
+            </select>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="data-table plain-rows" id="ignoreTable">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Added by</th>
+                        <th>Added</th>
+                        {% if caps.edit_ignored %}<th></th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                {% for item in items %}
+                    {% set label = {'user': 'User', 'group': 'Group', 'ou': 'OU'}[item.type] %}
+                    <tr data-type="{{ item.type }}" data-text="{{ (item.identifier ~ ' ' ~ (item.added_by or '') ~ ' ' ~ (item.reason or ''))|lower }}">
+                        <td><span class="type-tag type-{{ item.type }}">{{ label }}</span></td>
+                        <td class="col-name">
+                            {{ item.identifier }}
+                            {% if item.reason %}<div class="ignore-note"><span>Why:</span> {{ item.reason }}</div>{% endif %}
+                            {% if caps.edit_ignored %}
+                            <details class="note-edit">
+                                <summary>{{ 'Edit note' if item.reason else 'Add a note' }}</summary>
+                                <form method="POST" action="{{ url_for('settings_ignored_note') }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="type" value="{{ item.type }}">
+                                    <input type="hidden" name="identifier" value="{{ item.identifier }}">
+                                    <input type="text" name="note" maxlength="200" value="{{ item.reason or '' }}" placeholder="Why is this ignored?" aria-label="Why is this ignored?">
+                                    <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+                                </form>
+                            </details>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.added_by or '-' }}</td>
+                        <td>{{ item.added_at[:10] if item.added_at else '-' }}</td>
+                        {% if caps.edit_ignored %}
+                        <td class="col-actions">
+                            <form method="POST" action="{{ url_for('settings_ignored_remove') }}"
+                                  onsubmit="return confirm('Stop ignoring this? The next sync will treat it like anything else, and may delete it from AD.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="type" value="{{ item.type }}">
+                                <input type="hidden" name="identifier" value="{{ item.identifier }}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Stop ignoring</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="field-hint" id="ignoreNone" hidden>Nothing matches.</p>
+        {% else %}
+        <p class="empty-note">Nothing is ignored. Every difference found in a sync will be acted on.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    const search = document.getElementById('ignoreSearch');
+    if (!search) return;
+    const type = document.getElementById('ignoreType');
+    const rows = Array.from(document.querySelectorAll('#ignoreTable tbody tr'));
+    function apply() {
+        const q = search.value.trim().toLowerCase();
+        let shown = 0;
+        rows.forEach(r => {
+            const ok = (!type.value || r.dataset.type === type.value) && (!q || r.dataset.text.includes(q));
+            r.hidden = !ok;
+            if (ok) shown++;
+        });
+        document.getElementById('ignoreNone').hidden = shown !== 0;
+    }
+    search.addEventListener('input', apply);
+    type.addEventListener('change', apply);
+})();
+</script>
+{% endblock %}

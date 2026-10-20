@@ -1,0 +1,85 @@
+{% extends "settings_base.html" %}
+{% from "_macros.html" import perm_checklist, code_field with context %}
+
+{% block settings_body %}
+<p class="back-link"><a href="{{ url_for('settings_accounts') }}">&larr; All accounts</a></p>
+
+<div class="settings-narrow">
+    <div class="card">
+        <h2 class="card-title">New Account</h2>
+        <p class="settings-lead">They will set up two-step verification the first time they sign in, and cannot use anything until they do.</p>
+
+        {% if error %}<div class="alert alert-error"><div class="alert-icon">⚠</div><div>{{ error }}</div></div>{% endif %}
+
+        <form method="POST" action="{{ url_for('settings_account_new') }}" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label class="form-label" for="display_name">Name</label>
+                <input type="text" id="display_name" name="display_name" class="form-input" maxlength="120" value="{{ form.get('display_name', '') }}" placeholder="Shown on the account card (optional)">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="username">Username</label>
+                <input type="text" id="username" name="username" class="form-input" maxlength="40" value="{{ form.get('username', '') }}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="email">Email</label>
+                <input type="email" id="email" name="email" class="form-input" maxlength="120" value="{{ form.get('email', '') }}" placeholder="Optional">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="role_choice">Role</label>
+                <select id="role_choice" name="role_choice" class="form-input" required>
+                    {% for value, label in role_choices %}
+                    <option value="{{ value }}" {% if form.get('role_choice') == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" id="permBox" hidden>
+                <label class="form-label">Permissions</label>
+                {{ perm_checklist(selected_perms) }}
+            </div>
+
+            {% if caps.set_flags %}
+            <div class="form-group" id="flagBox" hidden>
+                <label class="form-label">Account management (Admin only)</label>
+                <label class="perm-item"><input type="checkbox" name="can_manage_admins" value="1" {% if form.get('can_manage_admins') == '1' %}checked{% endif %}>
+                    <span><strong>Can manage admin accounts</strong><small>View, add, edit, and delete other admins</small></span></label>
+                <label class="perm-item"><input type="checkbox" name="can_manage_staff" value="1" {% if form.get('can_manage_staff') == '1' %}checked{% endif %}>
+                    <span><strong>Can manage staff accounts</strong><small>View, add, edit, and delete everyone who is not an admin, and manage roles</small></span></label>
+                <p class="field-hint">Both start off. Only the Owner can turn them on.</p>
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-input" autocomplete="new-password" minlength="12" required>
+                <p class="field-hint">At least 12 characters. It cannot contain the username.</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="confirm_password">Confirm password</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-input" autocomplete="new-password" minlength="12" required>
+            </div>
+
+            {{ code_field() }}
+
+            <button type="submit" class="btn btn-primary">Create account</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var role = document.getElementById('role_choice');
+        var permBox = document.getElementById('permBox');
+        var flagBox = document.getElementById('flagBox');
+        function sync() {
+            permBox.hidden = role.value !== 'custom';
+            if (flagBox) flagBox.hidden = role.value !== 'admin';
+        }
+        role.addEventListener('change', sync);
+        sync();
+    })();
+</script>
+{% endblock %}

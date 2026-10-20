@@ -1,0 +1,27 @@
+# Secrets and per-install state: never commit these
+.env
+secrets.json.enc
+secrets.json
+*.db
+connection_mode.json
+keys/*
+!keys/replace_with_your_google_json_key_file.json
+*.pem
+*.pfx
+*.key
+*.csr
+*.crt
+logs/
+data_backup/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

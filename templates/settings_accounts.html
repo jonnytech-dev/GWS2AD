@@ -1,0 +1,29 @@
+{% extends "settings_base.html" %}
+{% from "_macros.html" import avatar, tags with context %}
+
+{% block settings_body %}
+<div class="settings-toolbar">
+    <p class="settings-lead">Everyone you can see here. Click a card for their details.</p>
+    {% if caps.create_admin or caps.create_staff %}
+        <a href="{{ url_for('settings_account_new') }}" class="btn btn-primary">+ New account</a>
+    {% endif %}
+</div>
+
+{% if accounts %}
+<div class="account-grid">
+    {% for a in accounts %}
+    <a class="account-card {% if not a.is_active %}is-inactive{% endif %}" href="{{ url_for('settings_account_detail', account_id=a.id) }}">
+        {{ avatar(a) }}
+        <div class="account-card-main">
+            <div class="account-card-name">{{ a.display }}</div>
+            <div class="account-card-user">@{{ a.username }}</div>
+            <div class="account-card-tags">{{ tags(a) }}</div>
+            <div class="account-card-perms">{{ perm.summary(a) }}</div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card"><p class="settings-lead">There are no accounts to show.</p></div>
+{% endif %}
+{% endblock %}

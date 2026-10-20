@@ -1,0 +1,73 @@
+{% extends "settings_base.html" %}
+{% from "_macros.html" import code_field with context %}
+
+{% block settings_body %}
+<div class="settings-narrow">
+    <div class="card">
+        <h2 class="card-title">Connection</h2>
+        <p class="settings-lead">
+            Right now {{ app_name }} is in
+            <strong>{{ 'Demo' if is_demo else 'Live' }} mode</strong>.
+            {% if is_demo %}
+                It uses made-up people and groups kept in memory, so you can click through everything safely.
+                Nothing is sent to Google or Active Directory, and no email is sent.
+            {% else %}
+                It reads your real Google Workspace and changes your real Active Directory. Syncs and edits are real.
+            {% endif %}
+        </p>
+        {% if error %}<div class="alert alert-error"><div class="alert-icon">⚠</div><div>{{ error }}</div></div>{% endif %}
+
+        {% if results %}
+        <ul class="info-list">
+            {% for name, ok, message in results %}
+            <li><strong>{{ '✔' if ok else '✖' }} {{ name }}:</strong> {{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2 class="card-title">Live settings</h2>
+        {% if missing %}
+            <p class="settings-lead">These are not saved yet, so Live mode cannot be turned on:</p>
+            <ul class="info-list">{% for name in missing %}<li><code>{{ name }}</code></li>{% endfor %}</ul>
+            <p class="field-hint">Save them on the server by running <code>python setup_secrets.py --live</code>, then restart the app.
+            Passwords and keys are never typed into this web page. The guide is in <code>docs/going-live.md</code>.</p>
+        {% else %}
+            <p class="settings-lead">Google Workspace, Active Directory and email settings are saved.
+            The check below signs in to each one and reads a single item. It changes nothing.</p>
+            <form method="POST" action="{{ url_for('settings_connection_test') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-secondary">Run connection check</button>
+            </form>
+        {% endif %}
+    </div>
+
+    <div class="card {{ '' if is_demo else 'danger-card' }}">
+        <h2 class="card-title">{{ 'Switch to Live' if is_demo else 'Switch back to Demo' }}</h2>
+        <form method="POST" action="{{ url_for('settings_connection_mode') }}" class="danger-row" autocomplete="off"
+              onsubmit="return confirm('{{ 'Turn on Live mode? Syncs and edits will change your real systems.' if is_demo else 'Go back to Demo mode with sample data?' }}');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="mode" value="{{ 'live' if is_demo else 'demo' }}">
+            <div>
+                <strong>{{ 'Use my real Google Workspace and Active Directory' if is_demo else 'Stop using real systems' }}</strong>
+                <p class="field-hint">
+                    {% if is_demo %}Runs the connection check first. Live only turns on if every check passes.{% else %}Nothing is deleted. The app just stops talking to the real systems.{% endif %}
+                </p>
+            </div>
+            <div class="danger-actions">{{ code_field() }}<button type="submit" class="btn {{ 'btn-primary' if is_demo else 'btn-secondary' }}">{{ 'Go Live' if is_demo else 'Use Demo' }}</button></div>
+        </form>
+    </div>
+
+    {% if is_demo %}
+    <div class="card">
+        <h2 class="card-title">Reset sample data</h2>
+        <form method="POST" action="{{ url_for('settings_connection_reset_demo') }}" class="danger-row">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div><strong>Start the demo over</strong><p class="field-hint">Puts the sample people, groups and AD accounts back as they were. Sample data also resets whenever the app restarts.</p></div>
+            <div class="danger-actions"><button type="submit" class="btn btn-secondary">Reset</button></div>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
