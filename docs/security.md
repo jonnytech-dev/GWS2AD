@@ -53,7 +53,7 @@ Honest list. Some are fine for a small internal tool and some you may want to fi
 
 1. **`X-Forwarded-For` is trusted blindly** for the IP shown in the audit log (`auth.get_client_ip`). Anyone who can reach the app directly can write any address into it. Only trust it behind a reverse proxy that sets it.
 2. **No per-IP rate limiting.** Lockout is per account, so someone who knows a username can lock that person out for 15 minutes, repeatedly. It stops guessing, and it can be abused to annoy. Put the app on a network only admins can reach.
-3. **Email is a contact detail only.** It is not verified, and there is no "forgot password by email". Recovery is by an Owner or manager resetting, or by someone with server access.
+3. **Email is a contact detail only** for dashboard accounts. The separate [password reset page](password-reset-portal.md) lets Google users reset their own AD and Google passwords with a code sent to their work email, so whoever can open that mailbox can reset both passwords. Google admins are excluded. The page is HTTPS only and does not start without a certificate.
 4. **The JSON API has no CSRF tokens.** It depends on `SameSite=Lax` cookies and JSON-only bodies, which together stop the ordinary cross-site tricks, but token-based protection would be stronger.
 5. **No `Content-Security-Policy`, frame or HSTS headers** are set by the app. Add them at a reverse proxy if you expose it beyond a trusted network.
 6. **It uses Flask's built-in server.** That is adequate for a handful of admins on an internal network. For more, run it behind a production server / reverse proxy.

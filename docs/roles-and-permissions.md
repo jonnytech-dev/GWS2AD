@@ -64,7 +64,7 @@ so a stolen browser session cannot quietly make them. Each code works once.
 
 People can change their own username and email under Settings > Profile, but only by giving their current password. Username rules: 3 to 40
 letters, numbers, dots, dashes, underscores. A name that appears in the activity history cannot be taken by someone else, so old log entries
-can never look like they belong to a new person. Email is a contact detail only: it is not verified and not used for password recovery.
+can never look like they belong to a new person. The Branding tab (logo and name for the password reset page) is Owner only. Email is a contact detail only: it is not verified and not used for password recovery.
 
 ## Locked out?
 

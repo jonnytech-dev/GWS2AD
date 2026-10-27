@@ -185,6 +185,10 @@
                     <small style="color: #666; display: block; margin-top: 0.25rem;">Min 8 chars, uppercase, lowercase, number, special char</small>
                 </div>
                 <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" name="confirmPassword" class="form-input" placeholder="Enter the password again" required>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Organizational Unit</label>
                     <div id="addUserOuContainer" style="max-height: 12.5rem; overflow-y: auto; border: 1px solid #DDD; border-radius: 4px; padding: 0.5rem;">
                         <div style="color: #999; padding: 0.5rem;">Loading organizational units...</div>
@@ -1061,18 +1065,23 @@ async function submitAddUser() {
     });
     data.groups = selectedGroups;
     
+    if (data.password !== data.confirmPassword) {
+        showAlert('The two passwords do not match. Nothing was created.', 'error');
+        return;
+    }
+    
     // Collect selected OU (defaults to root if none somehow selected)
     data.orgUnitPath = document.querySelector('input[name="addUserOu"]:checked')?.value || '/';
     
     try {
-        await apiCall('POST', '/api/users', data);
-        showAlert('User created successfully!', 'success');
+        const result = await apiCall('POST', '/api/users', data);
+        showAlert((result && result.message) || 'User created successfully!', (result && result.groupProblems && result.groupProblems.length) ? 'error' : 'success');
         form.reset();
         closeModal('addUserModal');
         loadUsers(1);
         loadGroups(1);
     } catch (error) {
-        showAlert('Failed to create user: ' + error.message, 'error');
+        showAlert(error.message, 'error');
     }
 }
 
@@ -1083,14 +1092,14 @@ async function submitAddGroup() {
     const data = Object.fromEntries(formData);
     
     try {
-        await apiCall('POST', '/api/groups', data);
-        showAlert('Group created successfully!', 'success');
+        const result = await apiCall('POST', '/api/groups', data);
+        showAlert((result && result.message) || 'Group created successfully!', 'success');
         form.reset();
         closeModal('addGroupModal');
         loadUsers(1);
         loadGroups(1);
     } catch (error) {
-        showAlert('Failed to create group: ' + error.message, 'error');
+        showAlert(error.message, 'error');
     }
 }
 

@@ -25,9 +25,26 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pathlib import Path
 import datetime
+import re
 import ipaddress
 
 APP_ROOT = Path(__file__).parent
+
+_NAME = re.compile(r'^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$')
+
+
+def parse_hostnames(text, default):
+    """
+    "a.example.com, b.example.com" -> ['a.example.com', 'b.example.com'].
+    The first name is the main one. Every name goes in the certificate, so one certificate
+    works for all of them. Raises ValueError for anything that is not a plain host name.
+    """
+    names = [n.strip().lower() for n in (text or '').replace(';', ',').replace(' ', ',').split(',') if n.strip()]
+    names = names or [default]
+    for n in names:
+        if not _NAME.match(n):
+            raise ValueError(f"'{n}' is not a valid host name (example: gws2ad.example.com)")
+    return list(dict.fromkeys(names))
 
 
 def generate_self_signed_cert(hostname, ip_addresses=None, days_valid=825):
@@ -38,11 +55,12 @@ def generate_self_signed_cert(hostname, ip_addresses=None, days_valid=825):
     """
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
+    hostnames = [hostname] if isinstance(hostname, str) else list(hostname)
     subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, hostname),
+        x509.NameAttribute(NameOID.COMMON_NAME, hostnames[0]),
     ])
 
-    san_entries = [x509.DNSName(hostname)]
+    san_entries = [x509.DNSName(n) for n in hostnames]
     if ip_addresses:
         for ip in ip_addresses:
             try:
@@ -70,13 +88,21 @@ def main():
     print("GWS2AD - Self-Signed Certificate Generator")
     print("=" * 70)
     print()
-    hostname = input("Hostname admins will use to reach this app [gws2ad.example.com]: ").strip()
-    hostname = hostname or "gws2ad.example.com"
+    print("Type every name people will use, separated by commas. One certificate will cover all of them.")
+    print("Example: gws2ad.example.com, reset.example.com")
+    while True:
+        try:
+            hostnames = parse_hostnames(input("Host name(s) [gws2ad.example.com]: "), "gws2ad.example.com")
+            break
+        except ValueError as e:
+            print(f"  {e}")
+    hostname = hostnames[0]
+    print("Names in the certificate: " + ", ".join(hostnames))
 
     ip_input = input("Also cover a specific IP address? (optional, press Enter to skip): ").strip()
     ip_addresses = [ip_input] if ip_input else []
 
-    cert, key = generate_self_signed_cert(hostname, ip_addresses)
+    cert, key = generate_self_signed_cert(hostnames, ip_addresses)
 
     cert_path = APP_ROOT / "cert.pem"
     key_path = APP_ROOT / "key.pem"

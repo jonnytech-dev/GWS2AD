@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{{ app_title }}{% if brand.org_name %} | {{ brand.org_name }}{% endif %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('asset', name='favicon.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('asset', name='reset.css') }}?v=5">
+</head>
+<body>
+    {% if demo_mode %}
+    <div class="demo-banner">Demo mode: sample data only. No email is sent.</div>
+    {% endif %}
+
+    {% set step = {'start': 1, 'ask_for_code': 1, 'enter_code': 2, 'check_the_code': 2, 'choose_password': 3, 'save_password': 3, 'done': 4}.get(request.endpoint, 1) %}
+
+    <main class="card">
+        <header class="brand">
+            {% if brand.has_logo %}
+            <img class="brand-logo" src="{{ url_for('brand_logo') }}?v={{ brand.logo_version }}" alt="{{ brand.org_name or 'Logo' }}">
+            {% else %}
+            <span class="brand-logo placeholder" aria-hidden="true">
+                <svg width="64" height="60" viewBox="0 0 56 52" fill="none"><path d="M28 8 L7.5 45 H48.5 Z" stroke="#4CCF86" stroke-width="4" stroke-linejoin="round"/><path d="M9 45 H47" stroke="#5CD690" stroke-width="7" stroke-linecap="round"/><circle cx="28" cy="8" r="7" fill="#5BD58F"/><circle cx="8" cy="45" r="7" fill="#5BD58F"/><circle cx="48" cy="45" r="7" fill="#5BD58F"/></svg>
+            </span>
+            {% endif %}
+            {% if brand.org_name %}<p class="brand-name">{{ brand.org_name }}</p>{% endif %}
+        </header>
+
+        {% if step < 4 %}
+        <ol class="steps" aria-label="Progress">
+            <li class="{{ 'done' if step > 1 else 'now' }}"><span class="num">{% if step > 1 %}&#10003;{% else %}1{% endif %}</span><span class="label">Your email</span></li>
+            <li class="{{ 'done' if step > 2 else ('now' if step == 2 else '') }}"><span class="num">{% if step > 2 %}&#10003;{% else %}2{% endif %}</span><span class="label">Check the code</span></li>
+            <li class="{{ 'now' if step == 3 else '' }}"><span class="num">3</span><span class="label">New password</span></li>
+        </ol>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+    <p class="foot">Trouble? Contact your IT team.</p>
+</body>
+</html>

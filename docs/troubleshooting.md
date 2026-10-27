@@ -57,6 +57,16 @@ Logs are in `logs/` and each sync prints a timestamped log in the dashboard.
 | Cannot connect | Allow outbound TCP to the mail server's port (587 by default) |
 | A temporary password was lost | They are shown once and never stored. Set a new one with **Edit User** |
 
+## Password reset page
+
+| Symptom | Fix |
+|---|---|
+| Page does not load | Is `RESET_PORTAL` off? Is `cert.pem` / `key.pem` next to `app.py`? Without them it does not start (HTTPS only). Is port 8443 open in the firewall? Check the start-up lines for "Password reset page" |
+| "Not started: same port" | `RESET_PORTAL_PORT` equals the main port. Pick another |
+| No code arrives | The page always says it was sent. See the audit log (`self-service`) for the real reason: admin, suspended, not in Google or AD. Check the mail settings too |
+| Google changed but Active Directory did not | The audit log says so. Use **Edit User** to set the password again |
+| "Google could not be reached" | Nothing was changed. Check the server's internet access and try again |
+
 ## Sign-in
 
 | Symptom | Fix |

@@ -1,0 +1,19 @@
+{% extends 'reset/base.html' %}
+{% block content %}
+<div class="finished">
+    <span class="check" aria-hidden="true">&#10003;</span>
+    <h1>Your password has been changed</h1>
+</div>
+{% set who_label = 'Password changed for' %}{% set hide_not_you = true %}
+{% include 'reset/_who.html' %}
+<p class="lead">Use your new password from now on, for both your computer sign-in and your Google Workspace account.</p>
+<div class="explain">
+    <p class="explain-title">What to do next</p>
+    <ul>
+        <li>Sign in to your computer with the new password.</li>
+        <li>Your phone, tablet or mail app may ask for the new password. Enter it when it does.</li>
+        <li>If you did not do this, tell your IT team right away.</li>
+    </ul>
+</div>
+<a class="button-link" href="{{ url_for('start') }}">Reset another password</a>
+{% endblock %}

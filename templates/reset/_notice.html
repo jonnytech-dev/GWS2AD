@@ -1,0 +1,10 @@
+{% if notice %}
+<div class="notice notice-{{ notice.kind }}" role="alert">
+    <p class="notice-title">{{ notice.title }}</p>
+    <p>{{ notice.text }}</p>
+</div>
+{% elif error %}
+<div class="notice notice-error" role="alert">
+    <p>{{ error }}</p>
+</div>
+{% endif %}

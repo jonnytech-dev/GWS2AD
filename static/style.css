@@ -1,7 +1,7 @@
 /* =====================================================================
    style.css
    =====================================================================
-   Admin panel stylesheet - green theme, mobile-responsive.
+   Dashboard stylesheet - green theme, mobile-responsive.
    ===================================================================== */
 
 /* Roboto (variable), bundled locally so the app looks the same on every
@@ -174,15 +174,9 @@ select {
     background: rgba(130, 230, 180, 0.2);
 }
 
-/* Logout sits quietly at the far right */
+/* Logout looks like the other links; it just sits at the far right */
 .navbar-nav .nav-logout {
     margin-left: auto;
-    font-weight: 400;
-    opacity: 0.85;
-}
-
-.navbar-nav .nav-logout:hover {
-    opacity: 1;
 }
 
 @media (max-width: 900px) {
@@ -209,11 +203,6 @@ select {
     }
 }
 
-/* The Logout icon only appears when the labels are hidden (small screens) */
-.navbar-nav .nav-logout svg {
-    display: none;
-}
-
 /* Small screens: icons only, so all four links fit */
 @media (max-width: 760px) {
     .nav-label {
@@ -224,13 +213,6 @@ select {
         padding: 0 0.75rem;
     }
 
-    .navbar-nav .nav-logout svg {
-        display: block;
-    }
-
-    .navbar-nav .nav-logout {
-        opacity: 1;
-    }
 }
 
 @media (max-width: 640px) {
@@ -2313,3 +2295,14 @@ tr[hidden] { display: none; }
 .sp-row { flex-wrap: wrap; }
 .sp-note-edit { flex-basis: 100%; display: flex; gap: 0.5rem; align-items: center; }
 .sp-why { color: #92400E; font-style: italic; }
+
+/* Settings > Branding */
+.brand-preview { margin: 0 0 1.25rem; padding: 1rem; border: 1px dashed var(--border, #DCE3EA); border-radius: 0.5rem; text-align: center; background: #fff; }
+.brand-preview-img { max-width: 14rem; max-height: 5rem; width: auto; height: auto; }
+.remove-logo-form { margin-top: 0.75rem; }
+
+/* The organization's own logo, from Settings > Branding */
+.navbar-brand .logo-img { height: 3.25rem; width: auto; max-width: 9rem; object-fit: contain; flex-shrink: 0; }
+.login-logo .logo-img { max-height: 6rem; max-width: 16rem; width: auto; height: auto; object-fit: contain; }
+.login-org { margin: 0 0 0.25rem; font-weight: 600; color: #1B5E20; letter-spacing: 0.02em; }
+@media (max-width: 48rem) { .navbar-brand .logo-img { height: 2.5rem; max-width: 6rem; } }

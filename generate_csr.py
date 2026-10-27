@@ -29,8 +29,25 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pathlib import Path
+import re
 
 APP_ROOT = Path(__file__).parent
+
+_NAME = re.compile(r'^(\*\.)?([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$')
+
+
+def parse_hostnames(text, default):
+    """
+    "a.example.com, b.example.com" -> ['a.example.com', 'b.example.com'].
+    The first name is the main one. Every name goes in the certificate, so one certificate
+    works for all of them. Raises ValueError for anything that is not a plain host name.
+    """
+    names = [n.strip().lower() for n in (text or '').replace(';', ',').replace(' ', ',').split(',') if n.strip()]
+    names = names or [default]
+    for n in names:
+        if not _NAME.match(n):
+            raise ValueError(f"'{n}' is not a valid host name (example: gws2ad.example.com)")
+    return list(dict.fromkeys(names))
 
 
 def main():
@@ -38,8 +55,24 @@ def main():
     print("GWS2AD - Certificate Signing Request Generator")
     print("=" * 70)
     print()
-    hostname = input("Hostname admins will use to reach this app [gws2ad.example.com]: ").strip()
-    hostname = hostname or "gws2ad.example.com"
+    print("Type every name people will use, separated by commas. One certificate will cover all of them.")
+    print("Example: gws2ad.example.com, reset.example.com")
+    while True:
+        try:
+            hostnames = parse_hostnames(input("Host name(s) [gws2ad.example.com]: "), "gws2ad.example.com")
+            break
+        except ValueError as e:
+            print(f"  {e}")
+    hostname = hostnames[0]
+    print("Names in the request: " + ", ".join(hostnames))
+
+    if (APP_ROOT / "key.pem").exists():
+        print()
+        print("key.pem already exists. A new key would stop your current certificate from working,")
+        print("because a certificate only works with the key it was made for.")
+        if input("Type YES to replace it, or press Enter to stop: ").strip() != "YES":
+            print("Stopped. Nothing was changed. Move key.pem somewhere safe first if you want a fresh one.")
+            return
 
     print()
     print("Generating a 2048-bit private key...")
@@ -60,7 +93,7 @@ def main():
             x509.NameAttribute(NameOID.COMMON_NAME, hostname),
         ]))
         .add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(hostname)]),
+            x509.SubjectAlternativeName([x509.DNSName(n) for n in hostnames]),
             critical=False,
         )
         .sign(key, hashes.SHA256())

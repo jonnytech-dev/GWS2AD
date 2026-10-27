@@ -6,12 +6,40 @@ Handles all AD operations: read users/groups, create, update, delete.
 """
 
 from ldap3 import Server, Connection, ALL, MODIFY_REPLACE, MODIFY_ADD, MODIFY_DELETE, SUBTREE, LEVEL
+from ldap3.utils.conv import escape_filter_chars
 from config import AD_CONFIG
 import secrets
 import string
 import re
 import time
 
+
+
+def friendly_ad_error(raw):
+    """
+    Turns a raw LDAP result (or message) from Active Directory into a plain reason an admin can act on.
+    Always keeps the raw text at the end in brackets, so nothing is hidden from the admin.
+    """
+    text = str(raw)
+    low = text.lower()
+    if '0000052d' in low or ('constraint' in low and 'unicodepwd' in low) or 'password' in low and ('complex' in low or 'policy' in low or 'history' in low):
+        why = ("The password does not meet the Active Directory password policy "
+               "(usually minimum length, complexity, or password history). Try a longer one with upper and lower case letters, a number and a symbol")
+    elif 'unwilling' in low or 'ssl' in low or 'ldaps' in low or 'secure connection' in low:
+        why = "Active Directory only allows setting passwords over a secure (LDAPS) connection, and this connection is not secure"
+    elif 'insufficient' in low or 'access' in low and 'denied' in low or '00002098' in low:
+        why = "The sync account does not have permission to do this in Active Directory"
+    elif 'alreadyexists' in low or 'already exists' in low or '00002071' in low:
+        why = "That name already exists in Active Directory"
+    elif 'nosuchobject' in low or 'no such object' in low:
+        why = "Active Directory could not find the organizational unit it needs"
+    elif 'not found' in low:
+        why = "Active Directory could not find it"
+    elif 'timed out' in low or 'timeout' in low or 'socket' in low or 'connect' in low or 'unavailable' in low:
+        why = "Active Directory could not be reached"
+    else:
+        why = "Active Directory refused the request"
+    return f"{why}. [{text[:300]}]"
 
 class ADConnector:
     """Active Directory LDAP connector"""
@@ -82,10 +110,13 @@ class ADConnector:
         after creating the user in the same sync pass.
         Returns the user's DN, or None if still not found after retrying.
         """
+        # The address is escaped so that characters with a meaning in an LDAP
+        # filter, such as * ( ) and \, can never change what is being searched for.
+        safe = escape_filter_chars(email or '')
         for attempt in range(retries):
             self.conn.search(
                 AD_CONFIG['base_dn'],
-                f'(|(mail={email})(userPrincipalName={email}))',
+                f'(|(mail={safe})(userPrincipalName={safe}))',
                 search_scope=SUBTREE,
                 attributes=['distinguishedName']
             )
@@ -95,6 +126,10 @@ class ADConnector:
                 time.sleep(retry_delay)
         return None
     
+    def has_user(self, email):
+        """True if an account with this email (or user principal name) exists under the base DN. One look, no retries."""
+        return self._find_user_dn(email, retries=1) is not None
+
     def _escape_dn_value(self, value):
         """
         Escape a value for safe use inside a raw DN string (e.g. as an
@@ -381,7 +416,7 @@ class ADConnector:
         except Exception as e:
             return False, str(e)
 
-    def create_user(self, email, first_name, last_name, full_name=None, org_unit_path='/', root_ou_name=''):
+    def create_user(self, email, first_name, last_name, full_name=None, org_unit_path='/', root_ou_name='', password=None):
         """
         Create a new user in Active Directory.
         org_unit_path: the user's GWS orgUnitPath (e.g. '/', '/Operations',
@@ -391,8 +426,14 @@ class ADConnector:
         nested one level inside a mirrored copy of GWS's real OU
         hierarchy, rooted at an OU matching that top-level name. Any
         missing OUs along the way are created automatically.
+        password: if given (dashboard), that password is set and the person is NOT forced to
+        change it, matching Google. If not given (sync), a random temp password is set and
+        the person must change it at next logon.
+        If anything fails after the account object exists, the half-made account is deleted
+        again, so a failed create never leaves a partial user behind.
         Returns (success, temp_password, error_message)
         """
+        created_dn = None
         try:
             sam_name = self.sanitize_samaccountname(email.split('@')[0])
             users_ou, ou_error = self._resolve_users_container_dn(org_unit_path, root_ou_name)
@@ -401,7 +442,7 @@ class ADConnector:
                 # doesn't actually exist - that would just fail with a
                 # confusing "no such object" error instead of the real
                 # reason (usually an AD permissions issue)
-                return False, None, f"Could not prepare target OU for user: {ou_error}"
+                return False, None, friendly_ad_error(f"Could not prepare target OU for user: {ou_error}")
             user_dn = f"CN={full_name or sam_name},{users_ou}"
             
             # Create with only the bare minimum - matching your working
@@ -415,40 +456,53 @@ class ADConnector:
             }
             
             if not self.conn.add(user_dn, ['top', 'person', 'organizationalPerson', 'user'], user_attrs):
-                return False, None, f"Failed to create base user object: {self.conn.result}"
+                return False, None, friendly_ad_error(f"Failed to create base user object: {self.conn.result}")
+            created_dn = user_dn
             
             if not self.conn.modify(user_dn, {'userPrincipalName': [(MODIFY_REPLACE, [email])]}):
-                return False, None, f"User created, but failed to set userPrincipalName: {self.conn.result}"
+                return self._abort_create(created_dn, f"Failed to set userPrincipalName: {self.conn.result}")
             
             if not self.conn.modify(user_dn, {
                 'givenName': [(MODIFY_REPLACE, [first_name])],
                 'sn': [(MODIFY_REPLACE, [last_name])],
                 'displayName': [(MODIFY_REPLACE, [full_name or f"{first_name} {last_name}"])],
             }):
-                return False, None, f"User created, but failed to set name fields: {self.conn.result}"
+                return self._abort_create(created_dn, f"Failed to set name fields: {self.conn.result}")
             
             if not self.conn.modify(user_dn, {'mail': [(MODIFY_REPLACE, [email])]}):
-                return False, None, f"User created, but failed to set mail: {self.conn.result}"
+                return self._abort_create(created_dn, f"Failed to set mail: {self.conn.result}")
             
             # Generate temp password
-            temp_password = self.generate_temp_password()
+            temp_password = password or self.generate_temp_password()
             
             # Set password (requires LDAPS)
             pwd_value = f'"{temp_password}"'.encode('utf-16-le')
             if not self.conn.modify(user_dn, {'unicodePwd': [(MODIFY_REPLACE, [pwd_value])]}):
-                return False, None, f"User created, but failed to set password: {self.conn.result}"
+                return self._abort_create(created_dn, f"Failed to set password: {self.conn.result}")
             
             # Force password change at next logon, enable account
             if not self.conn.modify(user_dn, {
-                'pwdLastSet': [(MODIFY_REPLACE, ['0'])],
+                'pwdLastSet': [(MODIFY_REPLACE, ['0' if not password else '-1'])],
                 'userAccountControl': [(MODIFY_REPLACE, ['512'])],
             }):
-                return False, None, f"User created, but failed to enable account: {self.conn.result}"
+                return self._abort_create(created_dn, f"Failed to enable account: {self.conn.result}")
             
             print(f"[CREATE] User: {email}")
             return True, temp_password, None
         except Exception as e:
-            return False, None, str(e)
+            if created_dn:
+                return self._abort_create(created_dn, str(e))
+            return False, None, friendly_ad_error(e)
+
+    def _abort_create(self, dn, what):
+        """Deletes a half-made account and reports why it failed (and whether the clean-up worked)"""
+        reason = friendly_ad_error(what)
+        try:
+            if self.conn.delete(dn):
+                return False, None, reason
+            return False, None, reason + f" The partly created account could not be removed ({self.conn.result}); delete {dn} by hand."
+        except Exception as e:
+            return False, None, reason + f" The partly created account could not be removed ({e}); delete {dn} by hand."
     
     def update_user(self, email, updates):
         """
@@ -534,7 +588,7 @@ class ADConnector:
                 AD_CONFIG['base_dn']
             )
             if ou_error:
-                return False, f"Could not prepare Groups OU: {ou_error}"
+                return False, friendly_ad_error(f"Could not prepare Groups OU: {ou_error}")
             group_dn = f"CN={sam_name},{groups_ou}"
             
             group_attrs = {
@@ -544,7 +598,7 @@ class ADConnector:
             }
             
             if not self.conn.add(group_dn, ['top', 'group'], group_attrs):
-                return False, f"Failed to create group: {self.conn.result}"
+                return False, friendly_ad_error(f"Failed to create group: {self.conn.result}")
             
             print(f"[CREATE] Group: {sam_name}")
             return True, None

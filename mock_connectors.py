@@ -15,7 +15,7 @@ Data resets when the app restarts. Settings > Connection has a reset button.
 """
 import threading
 
-from ad_connector import ADConnector
+from ad_connector import ADConnector, friendly_ad_error
 from config import AD_CONFIG
 
 DEMO_DOMAIN = 'example.com'
@@ -82,6 +82,22 @@ class MockGWSConnector:
         with _lock:
             return [dict(u) for u in self.users]
 
+    def get_user_security_info(self, email):
+        """Same answer the real connector gives. In the sample company Maria Alvarez is a
+        super admin and Tom Becker has no recovery email, so the reset page's refusals can be tried."""
+        with _lock:
+            u = self._user(email or '')
+            if not u:
+                return None
+            local = u['email'].split('@')[0]
+            return {
+                'email': u['email'],
+                'suspended': bool(u.get('suspended')),
+                'isAdmin': u['email'].lower() == f'malvarez@{DEMO_DOMAIN}',
+                'isDelegatedAdmin': False,
+                'recoveryEmail': '' if u['email'].lower() == f'tbecker@{DEMO_DOMAIN}' else f'{local}.home@example.net',
+            }
+
     def get_all_groups(self):
         with _lock:
             return [dict(g) for g in self.groups]
@@ -135,6 +151,9 @@ class MockGWSConnector:
                 u['lastName'] = updates['lastName']
             if 'orgUnitPath' in updates:
                 u['orgUnitPath'] = updates['orgUnitPath']
+            if updates.get('password'):
+                # Demo keeps no password. It only notes that one was set, so the reset page can be tested.
+                u['passwordChanges'] = u.get('passwordChanges', 0) + 1
             u['fullName'] = f"{u['firstName']} {u['lastName']}".strip()
 
     def delete_user(self, email):
@@ -260,6 +279,9 @@ class MockADConnector(ADConnector):
         u = self.users.get((email or '').lower())
         return u['dn'] if u else None
 
+    def has_user(self, email):
+        return self._find_user_dn(email, retries=1) is not None
+
     def _ensure_ou_exists(self, ou_name, base_dn):
         dn = f"OU={self._escape_dn_value(ou_name)},{base_dn}"
         self._note_ou(dn)
@@ -304,10 +326,14 @@ class MockADConnector(ADConnector):
             return True, None
 
     # ---- writes (same (success, ..., error) conventions as the real class) ----
-    def create_user(self, email, first_name, last_name, full_name=None, org_unit_path='/', root_ou_name=''):
+    def create_user(self, email, first_name, last_name, full_name=None, org_unit_path='/', root_ou_name='', password=None):
         with _lock:
             if email.lower() in self.users:
-                return False, None, f"Failed to create base user object: {email} already exists"
+                return False, None, friendly_ad_error(f"Failed to create base user object: {email} already exists")
+            if password and not (len(password) >= 8 and any(c.isdigit() for c in password)
+                                 and any(c.isupper() for c in password) and any(c.islower() for c in password)):
+                # Demo stand-in for AD's password policy, so the error path can be seen and tested
+                return False, None, friendly_ad_error("Failed to set password: constraint violation 0000052D unicodePwd")
             container, error = self._resolve_users_container_dn(org_unit_path, root_ou_name)
             if error:
                 return False, None, error
@@ -325,6 +351,9 @@ class MockADConnector(ADConnector):
                 u['lastName'] = updates['lastName']
             if 'displayName' in updates:
                 u['displayName'] = updates['displayName']
+            if updates.get('password'):
+                # Demo keeps no password. It only notes that one was set, so the reset page can be tested.
+                u['passwordChanges'] = u.get('passwordChanges', 0) + 1
             return True, None
 
     def move_user(self, current_dn, new_parent_dn):
@@ -352,7 +381,7 @@ class MockADConnector(ADConnector):
     def create_group(self, name, description=''):
         with _lock:
             if self.sanitize_samaccountname(name.replace(' ', '')) in self.groups:
-                return False, "Failed to create group: entryAlreadyExists"
+                return False, friendly_ad_error("Failed to create group: entryAlreadyExists")
             self._add_group(name, description or ' ')
             return True, None
 

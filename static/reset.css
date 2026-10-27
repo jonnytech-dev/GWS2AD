@@ -1,0 +1,73 @@
+/* reset.css: the self-service password reset page. No scripts; the page works with plain forms only. */
+@font-face {
+    font-family: "Roboto";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("fonts/roboto-latin-wght-normal.woff2") format("woff2");
+}
+:root { --green: #0E5A37; --green-dark: #0A4429; --green-soft: #E7F4EC; --text: #0B1324; --muted: #5B6486; --line: #DCE3EA; --bg: #F1F6F4; --error: #B91C1C; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, var(--green-soft) 0, var(--bg) 18rem); color: var(--text); font-family: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 1rem; line-height: 1.55; display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem 2rem; }
+.demo-banner { width: 100%; max-width: 30rem; background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 0.5rem; padding: 0.5rem 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; text-align: center; }
+.card { width: 100%; max-width: 30rem; background: #fff; border: 1px solid var(--line); border-top: 4px solid var(--green); border-radius: 0.875rem; padding: 1.75rem 1.5rem 2rem; box-shadow: 0 8px 24px rgba(11, 19, 36, 0.07); }
+
+.brand { text-align: center; margin-bottom: 1.25rem; }
+.brand-logo { display: block; margin: 0 auto; max-width: 14rem; max-height: 5rem; width: auto; height: auto; object-fit: contain; }
+.brand-logo.placeholder { display: flex; align-items: center; justify-content: center; width: auto; max-width: none; }
+.brand-name { margin: 0.6rem 0 0; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
+
+.steps { list-style: none; display: flex; justify-content: space-between; gap: 0.5rem; margin: 0 0 1.5rem; padding: 0; }
+.steps li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; position: relative; text-align: center; color: var(--muted); font-size: 0.8rem; }
+.steps li + li::before { content: ""; position: absolute; top: 0.95rem; right: 50%; width: 100%; height: 2px; background: var(--line); z-index: 0; }
+.steps li.done + li::before, .steps li.now::before { background: var(--green); }
+.steps .num { position: relative; z-index: 1; width: 1.9rem; height: 1.9rem; border-radius: 50%; border: 2px solid var(--line); background: #fff; display: flex; align-items: center; justify-content: center; font-weight: 500; }
+.steps li.now .num { border-color: var(--green); background: var(--green); color: #fff; }
+.steps li.done .num { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+.steps li.now { color: var(--text); font-weight: 500; }
+
+h1 { margin: 0 0 0.6rem; font-size: 1.55rem; line-height: 1.25; color: var(--green); }
+.lead { margin-top: 0; }
+.explain { background: var(--green-soft); border: 1px solid #CDE7D6; border-radius: 0.6rem; padding: 0.85rem 1rem; margin: 1.1rem 0; }
+.explain p { margin: 0; }
+.explain-title { font-weight: 500; margin-bottom: 0.4rem !important; }
+.explain ul { margin: 0; padding-left: 1.2rem; }
+.explain li + li { margin-top: 0.3rem; }
+.explain-note { margin-top: 0.5rem !important; font-weight: 500; color: var(--green-dark); }
+.finished { text-align: center; }
+.check { display: inline-flex; align-items: center; justify-content: center; width: 3.5rem; height: 3.5rem; margin-bottom: 0.6rem; border-radius: 50%; background: var(--green); color: #fff; font-size: 1.8rem; }
+.finished + .lead { text-align: center; }
+.success { color: var(--green); font-size: 1.15rem; font-weight: 500; }
+label { display: block; margin: 1rem 0 0.35rem; font-weight: 500; }
+input[type=email], input[type=password], input[type=text] { width: 100%; padding: 0.75rem 0.85rem; border: 1px solid var(--line); border-radius: 0.5rem; font: inherit; }
+input:focus { outline: 2px solid var(--green); outline-offset: 1px; border-color: var(--green); }
+input.code { font-size: 1.6rem; letter-spacing: 0.35rem; text-align: center; }
+.hint { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.9rem; }
+button { width: 100%; margin-top: 1.25rem; padding: 0.85rem; background: var(--green); color: #fff; border: 0; border-radius: 0.5rem; font: inherit; font-weight: 500; font-size: 1.05rem; cursor: pointer; }
+button:hover { background: var(--green-dark); }
+button:focus-visible { outline: 3px solid #86D3A5; outline-offset: 2px; }
+
+.demo-code { background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 0.5rem; padding: 0.6rem 0.8rem; }
+.small { color: var(--muted); font-size: 0.9rem; margin: 1.1rem 0 0; }
+a { color: var(--green); }
+.foot { color: var(--muted); font-size: 0.85rem; margin-top: 1rem; }
+@media (max-width: 26rem) { .card { padding: 1.25rem 1rem 1.5rem; } .steps li { font-size: 0.72rem; } h1 { font-size: 1.35rem; } }
+
+.kicker { margin: 0 0 0.25rem; color: var(--green); font-size: 0.8rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.who { margin: 0 0 0.9rem; padding: 0.55rem 0.8rem; background: var(--bg); border: 1px solid var(--line); border-radius: 0.5rem; font-size: 0.95rem; word-break: break-all; }
+.who-label { color: var(--muted); }
+.notice { margin: 1rem 0; padding: 0.75rem 0.9rem; border-radius: 0.5rem; border: 1px solid; border-left-width: 4px; }
+.notice p { margin: 0; }
+.notice-title { font-weight: 500; margin-bottom: 0.15rem !important; }
+.notice-error { background: #FEF2F2; border-color: #FCA5A5; color: #991B1B; }
+.notice-warn { background: #FFFBEB; border-color: #FCD34D; color: #92400E; }
+.covers { margin: 1.25rem 0 0; padding: 0.75rem 1rem 0.75rem 2rem; background: var(--green-soft); border: 1px solid #CDE7D6; border-radius: 0.6rem; font-size: 0.95rem; }
+.covers li + li { margin-top: 0.15rem; }
+.help { margin-top: 1.1rem; font-size: 0.95rem; color: var(--muted); }
+.help summary { cursor: pointer; color: var(--green); font-weight: 500; }
+.help ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+.help li + li { margin-top: 0.3rem; }
+
+.button-link { display: block; box-sizing: border-box; width: 100%; margin-top: 1.25rem; padding: 0.85rem; background: var(--green); color: #fff; border-radius: 0.5rem; font-weight: 500; font-size: 1.05rem; text-align: center; text-decoration: none; }
+.button-link:hover { background: var(--green-dark); }
+.button-link:focus-visible { outline: 3px solid #86D3A5; outline-offset: 2px; }

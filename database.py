@@ -493,6 +493,35 @@ def _migrate_roles():
                           "ON admins(role) WHERE role = 'owner'"))
 
 
+class PasswordResetRequest(db.Model):
+    """
+    One "I forgot my password" request on the self-service reset page
+    (reset_portal.py). It holds only fingerprints: the 6-digit code and the
+    one-time token are stored as keyed hashes, never as the codes themselves,
+    and a new password is never stored here at all.
+    """
+    __tablename__ = 'password_reset_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(254), nullable=False, index=True)       # as typed, lowercased
+    ip = db.Column(db.String(64), nullable=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    # Set only when the person may reset (see reset_portal.is_eligible)
+    eligible = db.Column(db.Boolean, default=False, nullable=False)
+    code_hash = db.Column(db.String(64), nullable=True)
+    code_expires_at = db.Column(db.DateTime, nullable=True)
+    attempts = db.Column(db.Integer, default=0, nullable=False)          # wrong codes so far
+
+    # Set once the right code has been entered
+    verified_at = db.Column(db.DateTime, nullable=True)
+    token_hash = db.Column(db.String(64), nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    password_attempts = db.Column(db.Integer, default=0, nullable=False)  # refused new passwords so far
+
+    used = db.Column(db.Boolean, default=False, nullable=False)          # finished or burned: cannot be used again
+
+
 def init_db(app):
     """Initialize database and create default admin if needed"""
     from config import ADMIN_CONFIG

@@ -4,7 +4,7 @@ app.py
 Main Flask application with all routes and API endpoints.
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response, abort
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response, abort, send_file
 from config import Config, APP_ROOT
 from database import db, init_db, Admin, Role, AuditLog, SyncStatus, IgnoredSyncItem, AppSettings
 from auth import (login_required, permission_required, login_user, set_session, logout_user,
@@ -19,7 +19,7 @@ import connection_test
 from sqlalchemy.exc import IntegrityError
 from functools import wraps
 from gws_connector import get_gws_connector
-from ad_connector import get_ad_connector
+from ad_connector import get_ad_connector, friendly_ad_error
 from sync_engine import get_sync_engine
 from directory_cache import DirectoryCache
 from datetime import datetime
@@ -42,6 +42,22 @@ APP_NAME = 'GWS2AD'
 @app.context_processor
 def inject_app_name():
     return {'app_name': APP_NAME}
+
+@app.context_processor
+def inject_brand():
+    """The organization's logo and name (Settings > Branding), for the sign-in pages and the header"""
+    import branding
+    return {'brand': branding.get()}
+
+@app.route('/branding/logo', methods=['GET'])
+def public_brand_logo():
+    """The logo only. Public on purpose: the sign-in page shows it before anyone has signed in."""
+    import branding
+    if not branding.has_logo():
+        abort(404)
+    response = send_file(branding.LOGO_FILE, mimetype='image/png', max_age=3600)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 @app.context_processor
 def inject_mode():
@@ -346,6 +362,8 @@ NOTICES = {
     'now_live': ('success', 'Live mode is on. The app now reads and changes your real Google Workspace and Active Directory.'),
     'now_demo': ('success', 'Demo mode is on. The app uses sample data again and cannot change anything real.'),
     'demo_reset': ('success', 'Sample data was reset.'),
+    'branding_saved': ('success', 'Branding saved. The password reset page, sign-in pages and dashboard top bar now use it.'),
+    'logo_removed': ('success', 'Logo removed. The password reset page, sign-in pages and dashboard top bar show the triangle again.'),
 }
 
 USERNAME_PATTERN = re.compile(r'^[A-Za-z0-9._-]{3,40}$')
@@ -1015,6 +1033,85 @@ def settings_ignored_note():
     )
     return redirect(url_for('settings_ignored', notice='ignore_note_saved'))
 
+# ------------------------------------------------------------------- branding
+def _branding_page(user, error=None, status=200):
+    import branding
+    return render_template('settings_branding.html', user=user, tab='branding', brand=branding.get(),
+                           notice=('error', error) if error else NOTICES.get(request.args.get('notice')),
+                           max_mb=branding.MAX_UPLOAD_BYTES // (1024 * 1024),
+                           max_name=branding.MAX_NAME_LENGTH), status
+
+
+@app.route('/settings/branding', methods=['GET'])
+@settings_access(permissions.can_manage_branding)
+def settings_branding():
+    return _branding_page(get_current_user())
+
+
+@app.route('/settings/branding', methods=['POST'])
+@settings_access(permissions.can_manage_branding)
+def settings_branding_save():
+    """Save the organization name and, if one was chosen, a new logo"""
+    import branding
+    user = get_current_user()
+    if not csrf_valid():
+        abort(400)
+    upload = request.files.get('logo')
+    raw = upload.read(branding.MAX_UPLOAD_BYTES + 1) if upload and upload.filename else b''
+    try:
+        if raw:
+            branding.save_logo(raw)
+        branding.save_org_name(request.form.get('org_name', ''))
+    except ValueError as e:
+        AuditLog.log_action(admin_username=user.username, action='save_branding', target='branding',
+                            status='failed', details={'error': str(e)}, source=get_client_ip())
+        return _branding_page(user, error=str(e), status=400)
+    except ImportError as e:
+        import traceback; traceback.print_exc()
+        AuditLog.log_action(admin_username=user.username, action='save_branding', target='branding',
+                            status='failed', details={'error': str(e)}, source=get_client_ip())
+        return _branding_page(user, error='The image library (Pillow) is not installed on the server. Run "pip install -r requirements.txt" in the app\'s Python environment, then restart the app.', status=500)
+    except OSError as e:
+        import traceback; traceback.print_exc()
+        AuditLog.log_action(admin_username=user.username, action='save_branding', target='branding',
+                            status='failed', details={'error': str(e)}, source=get_client_ip())
+        return _branding_page(user, error='The server could not write the "branding" folder next to app.py. Check that the account running the app can create and change files there.', status=500)
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        AuditLog.log_action(admin_username=user.username, action='save_branding', target='branding',
+                            status='failed', details={'error': repr(e)[:300]}, source=get_client_ip())
+        return _branding_page(user, error='The logo could not be saved. The details are in the server console.', status=500)
+    AuditLog.log_action(admin_username=user.username, action='save_branding', target='branding',
+                        status='success', details={'logo_changed': bool(raw), 'org_name': branding.org_name()},
+                        source=get_client_ip())
+    return redirect(url_for('settings_branding', notice='branding_saved'))
+
+
+@app.route('/settings/branding/remove-logo', methods=['POST'])
+@settings_access(permissions.can_manage_branding)
+def settings_branding_remove_logo():
+    import branding
+    user = get_current_user()
+    if not csrf_valid():
+        abort(400)
+    branding.remove_logo()
+    AuditLog.log_action(admin_username=user.username, action='remove_logo', target='branding',
+                        status='success', details={}, source=get_client_ip())
+    return redirect(url_for('settings_branding', notice='logo_removed'))
+
+
+@app.route('/settings/branding/logo', methods=['GET'])
+@settings_access(permissions.can_manage_branding)
+def settings_branding_logo():
+    """The current logo, for the preview on the Branding page"""
+    import branding
+    if not branding.has_logo():
+        abort(404)
+    response = send_file(branding.LOGO_FILE, mimetype='image/png')
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
 @app.route('/settings/connection', methods=['GET'])
 @settings_access(permissions.can_manage_connection)
 def settings_connection():
@@ -1358,77 +1455,133 @@ def api_get_user(email):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+def friendly_gws_error(error_str, what='', name=''):
+    """Plain reason for a failed Google Workspace call. Keeps the raw text at the end so nothing is hidden."""
+    low = error_str.lower()
+    if 'invalid password' in low:
+        why = 'Google Workspace rejected the password (it needs at least 8 characters)'
+    elif 'duplicate' in low or 'already exists' in low or 'entity already exists' in low:
+        why = f'{what or "It"} {name} already exists in Google Workspace'.replace('  ', ' ')
+    elif 'invalid email' in low or 'invalid primaryemail' in low or 'invalid group email' in low:
+        why = f'Google Workspace says the address {name} is not valid (check the domain)'
+    elif 'unauthorized' in low or 'forbidden' in low or 'not authorized' in low or 'insufficient permission' in low:
+        why = 'The Google service account is not authorized for this. Check its domain-wide delegation and scopes'
+    elif 'unauthenticated' in low or 'invalid_grant' in low:
+        why = 'Google Workspace sign-in failed. Check the service account key and delegated admin'
+    elif 'deadline' in low or 'timed out' in low or 'timeout' in low or 'connection' in low:
+        why = 'Google Workspace could not be reached or timed out'
+    else:
+        why = 'Google Workspace refused the request'
+    return f"{why}. [{error_str[:300]}]"
+
+
+def create_in_both(kind, label, create_ad, create_gws, delete_ad):
+    """
+    All-or-nothing create across Active Directory and Google Workspace.
+    Active Directory goes first because its rules (password policy, names, OUs) are the stricter
+    ones and its connector cleans up after itself. Google goes second. If Google fails, what was
+    made in AD is deleted again. Returns (ok, message, details).
+    """
+    ok, ad_error = create_ad()
+    if not ok:
+        return False, f"Not created. {kind} failed in Active Directory: {ad_error} Nothing was created in Google Workspace.", {'failed_in': 'Active Directory', 'error': ad_error}
+    try:
+        create_gws()
+    except Exception as e:
+        gws_error = friendly_gws_error(str(e), kind, label)
+        removed, remove_error = delete_ad()
+        if removed:
+            tail = 'The copy made in Active Directory was removed again, so nothing was created anywhere.'
+        else:
+            tail = f'The copy already made in Active Directory could NOT be removed ({remove_error}). Delete it by hand so the two stay consistent.'
+        return False, f"Not created. {kind} failed in Google Workspace: {gws_error} {tail}", {'failed_in': 'Google Workspace', 'error': gws_error, 'ad_rolled_back': bool(removed)}
+    return True, '', {}
+
 @app.route('/api/users', methods=['POST'])
 @login_required
 @permission_required('create_user')
 def api_create_user():
-    """Create a new user in GWS"""
+    """Create a new user in Active Directory AND Google Workspace, or in neither"""
     user = get_current_user()
-    data = request.get_json()
+    data = request.get_json() or {}
     
     email = data.get('email', '').strip()
     first_name = data.get('firstName', '').strip()
     last_name = data.get('lastName', '').strip()
     password = data.get('password', '').strip()
+    confirm = data.get('confirmPassword')
     org_unit_path = data.get('orgUnitPath', '/').strip() or '/'
     groups = data.get('groups', [])  # List of group emails
     
     if not all([email, first_name, last_name, password]):
         return jsonify({'error': 'Missing required fields (email, first name, last name, password)'}), 400
+    if confirm is None or confirm.strip() != password:
+        return jsonify({'error': 'The two passwords do not match. Nothing was created.'}), 400
+    
+    def fail(message, details):
+        AuditLog.log_action(admin_username=user.username, action='create_user', target=f'user:{email}',
+                            status='failed', details=details, source=get_client_ip())
+        return jsonify({'error': message}), 400
     
     try:
         gws = get_gws_connector()
-        gws.create_user(email, first_name, last_name, password, org_unit_path)
-        
-        # Add user to selected groups
-        added_groups = []
-        for group_email in groups:
-            try:
-                gws.add_user_to_group(email, group_email)
-                added_groups.append(group_email)
-            except Exception as group_error:
-                print(f"[WARN] Failed to add {email} to {group_email}: {group_error}")
-        
-        directory_cache.user_created(email, first_name, last_name, org_unit_path, added_groups)
-        
-        AuditLog.log_action(
-            admin_username=user.username,
-            action='create_user',
-            target=f'user:{email}',
-            status='success',
-            details={'firstName': first_name, 'lastName': last_name, 'groups': groups},
-            source=get_client_ip()
-        )
-        
-        return jsonify({'success': True, 'message': f'User {email} created successfully. They will be prompted to set a password on first login.'})
+        ad = get_ad_connector()
     except Exception as e:
-        error_str = str(e)
-        
-        # Parse Google Workspace API errors for better messages
-        user_friendly_error = error_str
-        
-        if 'Invalid Password' in error_str:
-            user_friendly_error = 'Password does not meet Google Workspace requirements. Use at least 8 chars with uppercase, lowercase, number, and special character.'
-        elif 'duplicate' in error_str.lower():
-            user_friendly_error = f'User {email} already exists in Google Workspace.'
-        elif 'Invalid Email Address' in error_str:
-            user_friendly_error = f'Invalid email address: {email}'
-        elif 'unauthorized' in error_str.lower():
-            user_friendly_error = 'Permission denied. Check GWS service account authorization.'
-        elif 'UNAUTHENTICATED' in error_str:
-            user_friendly_error = 'Google Workspace authentication failed. Check service account credentials.'
-        elif 'DEADLINE_EXCEEDED' in error_str:
-            user_friendly_error = 'Google Workspace request timed out. Try again.'
-        
-        AuditLog.log_action(
-            admin_username=user.username,
-            action='create_user',
-            target=f'user:{email}',
-            status='failed',
-            details={'error': error_str},
-            source=get_client_ip()
-        )
-        return jsonify({'error': user_friendly_error}), 400
+        msg = f'Not created. Could not connect to a directory: {str(e)[:200]}'
+        return fail(msg, {'error': str(e)})
+    
+    # Look first, so we never touch an account that already exists on either side
+    try:
+        if gws.get_user_security_info(email):
+            return fail(f'Not created. {email} already exists in Google Workspace. Nothing was created.', {'error': 'exists in Google Workspace'})
+    except Exception as e:
+        return fail(f'Not created. Google Workspace could not be checked: {friendly_gws_error(str(e))} Nothing was created.', {'error': str(e)})
+    try:
+        if ad.has_user(email):
+            return fail(f'Not created. {email} already exists in Active Directory. Nothing was created.', {'error': 'exists in Active Directory'})
+    except Exception as e:
+        return fail(f'Not created. Active Directory could not be checked: {friendly_ad_error(e)} Nothing was created.', {'error': str(e)})
+    
+    def create_ad():
+        ok, _temp, error = ad.create_user(email, first_name, last_name, f'{first_name} {last_name}'.strip(),
+                                          org_unit_path, '', password=password)
+        return ok, error
+    
+    ok, message, details = create_in_both(
+        'User', email,
+        create_ad,
+        lambda: gws.create_user(email, first_name, last_name, password, org_unit_path),
+        lambda: ad.delete_user(email),
+    )
+    if not ok:
+        return fail(message, details)
+    
+    # Group membership is added in Google now; Active Directory groups follow on the next sync.
+    # A failed membership does not undo the user, but it is reported.
+    added_groups, group_problems = [], []
+    for group_email in groups:
+        try:
+            gws.add_user_to_group(email, group_email)
+            added_groups.append(group_email)
+        except Exception as group_error:
+            group_problems.append(group_email)
+            print(f"[WARN] Failed to add {email} to {group_email}: {group_error}")
+    
+    directory_cache.user_created(email, first_name, last_name, org_unit_path, added_groups)
+    
+    AuditLog.log_action(
+        admin_username=user.username,
+        action='create_user',
+        target=f'user:{email}',
+        status='success',
+        details={'firstName': first_name, 'lastName': last_name, 'groups': added_groups, 'created_in': 'Active Directory and Google Workspace'},
+        source=get_client_ip()
+    )
+    text = f'User {email} created in Active Directory and Google Workspace.'
+    if group_problems:
+        text += ' These groups could not be joined, add them from Edit User: ' + ', '.join(group_problems) + '.'
+    return jsonify({'success': True, 'message': text, 'groupProblems': group_problems})
 
 @app.route('/api/users/<email>', methods=['PUT'])
 @login_required
@@ -1707,59 +1860,51 @@ def api_get_group(email):
 @login_required
 @permission_required('create_group')
 def api_create_group():
-    """Create a new group in GWS"""
+    """Create a new group in Active Directory AND Google Workspace, or in neither"""
     user = get_current_user()
-    data = request.get_json()
+    data = request.get_json() or {}
     
     email = data.get('email', '').strip()
     name = data.get('name', '').strip()
     description = data.get('description', '').strip()
     
     if not all([email, name]):
-        return jsonify({'error': 'Missing required fields'}), 400
+        return jsonify({'error': 'Missing required fields (group email and name)'}), 400
+    
+    def fail(message, details):
+        AuditLog.log_action(admin_username=user.username, action='create_group', target=f'group:{email}',
+                            status='failed', details=details, source=get_client_ip())
+        return jsonify({'error': message}), 400
     
     try:
         gws = get_gws_connector()
-        gws.create_group(email, name, description)
-        
-        directory_cache.group_created(email, name, description)
-        
-        AuditLog.log_action(
-            admin_username=user.username,
-            action='create_group',
-            target=f'group:{email}',
-            status='success',
-            details={'name': name, 'description': description},
-            source=get_client_ip()
-        )
-        
-        return jsonify({'success': True, 'message': f'Group {email} created successfully.'})
+        ad = get_ad_connector()
     except Exception as e:
-        error_str = str(e)
-        
-        # Parse Google Workspace API errors for better messages
-        user_friendly_error = error_str
-        
-        if 'duplicate' in error_str.lower():
-            user_friendly_error = f'Group {email} already exists in Google Workspace.'
-        elif 'Invalid Email Address' in error_str:
-            user_friendly_error = f'Invalid email address: {email}'
-        elif 'unauthorized' in error_str.lower():
-            user_friendly_error = 'Permission denied. Check GWS service account authorization.'
-        elif 'UNAUTHENTICATED' in error_str:
-            user_friendly_error = 'Google Workspace authentication failed. Check service account credentials.'
-        elif 'DEADLINE_EXCEEDED' in error_str:
-            user_friendly_error = 'Google Workspace request timed out. Try again.'
-        
-        AuditLog.log_action(
-            admin_username=user.username,
-            action='create_group',
-            target=f'group:{email}',
-            status='failed',
-            details={'error': error_str},
-            source=get_client_ip()
-        )
-        return jsonify({'error': user_friendly_error}), 400
+        return fail(f'Not created. Could not connect to a directory: {str(e)[:200]}', {'error': str(e)})
+    
+    sam_name = ad.sanitize_samaccountname(name.replace(' ', ''))
+    
+    ok, message, details = create_in_both(
+        'Group', email,
+        lambda: ad.create_group(name, description),
+        lambda: gws.create_group(email, name, description),
+        lambda: ad.delete_group(sam_name),
+    )
+    if not ok:
+        return fail(message, details)
+    
+    directory_cache.group_created(email, name, description)
+    
+    AuditLog.log_action(
+        admin_username=user.username,
+        action='create_group',
+        target=f'group:{email}',
+        status='success',
+        details={'name': name, 'description': description, 'created_in': 'Active Directory and Google Workspace'},
+        source=get_client_ip()
+    )
+    
+    return jsonify({'success': True, 'message': f'Group {email} created in Active Directory and Google Workspace.'})
 
 @app.route('/api/groups/<email>', methods=['PUT'])
 @login_required
@@ -1894,6 +2039,14 @@ if __name__ == '__main__':
     host = os.environ.get('GWS2AD_HOST', '127.0.0.1')
     port = int(os.environ.get('GWS2AD_PORT', 443 if ssl_context else 5000))
     print(f"[OK] Open {'https' if ssl_context else 'http'}://{'localhost' if host == '127.0.0.1' else host}:{port}")
+
+    # The self-service password reset page: a second small service, same address,
+    # its own port (RESET_PORTAL_PORT, default 8443). HTTPS only: it uses cert.pem and
+    # key.pem and does not start without them.
+    # RESET_PORTAL=false in .env turns it off. See docs/password-reset-portal.md.
+    import reset_portal
+    reset_portal.start_in_background(host, ssl_context, main_port=port)
+
     app.run(
         host=host,
         port=port,

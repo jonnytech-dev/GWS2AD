@@ -101,12 +101,16 @@ New-NetFirewallRule -DisplayName "GWS2AD HTTPS" -Direction Inbound -Protocol TCP
 ```
 
 Restrict the rule to your admin network. This tool should never be reachable from the internet. Opening 443 does not extend an existing
-rule for port 5000; they are separate.
+rule for port 5000; they are separate. The reset page needs its own rule for port 8443.
 
 ## 5. Back up
 
 Keep copies, stored apart from each other, of: `.env` (decryption key), `secrets.json.enc`, `gw2ad.db`, and your Google key.
 `data_backup\` holds a pre-sync snapshot of Google data for every sync; prune old ones when you like.
+
+## Password reset page
+
+GWS2AD also starts the self-service reset page on a second port, **HTTPS only**, 8443 by default (change with `RESET_PORTAL_PORT`). It uses the same `cert.pem` and `key.pem` as step 4, even if the dashboard is still on HTTP, and does not start without them. Open that port in the firewall for your network. DNS cannot carry a port, so use a reverse proxy or have people type `:8443`. See [password-reset-portal.md](password-reset-portal.md).
 
 ## 6. Check it
 

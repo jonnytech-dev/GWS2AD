@@ -1,0 +1,3 @@
+{% if who %}
+<p class="who"><span class="who-label">{{ who_label or 'Resetting the password for' }}</span> <strong>{{ who }}</strong>{% if not hide_not_you %} <a href="{{ url_for('start') }}">Not you?</a>{% endif %}</p>
+{% endif %}

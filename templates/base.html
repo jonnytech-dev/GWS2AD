@@ -4,22 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_version('style.css') }}">
 </head>
 <body>
     <!-- Navbar -->
     <nav class="navbar">
         <div class="navbar-brand">
-            <svg width="56" height="52" class="logo-svg" viewBox="0 0 56 52" fill="none" aria-hidden="true">
-                <path d="M28 8 L7.5 45 H48.5 Z" stroke="#4CCF86" stroke-width="4" stroke-linejoin="round"/>
-                <path d="M9 45 H47" stroke="#5CD690" stroke-width="7" stroke-linecap="round"/>
-                <circle cx="28" cy="8" r="7" fill="#5BD58F"/>
-                <circle cx="8" cy="45" r="7" fill="#5BD58F"/>
-                <circle cx="48" cy="45" r="7" fill="#5BD58F"/>
-            </svg>
+            {% include "_brand_logo.html" %}
             <div>
                 <div class="navbar-brand-name">{{ app_name }}</div>
-                <div class="navbar-subtitle">Google Workspace to Active Directory</div>
+                <div class="navbar-subtitle">{{ brand.org_name or 'Google Workspace to Active Directory' }}</div>
             </div>
         </div>
 
@@ -61,7 +56,7 @@
 
     <!-- Footer -->
     <footer style="text-align: center; padding: 2rem; color: #999; font-size: 0.85rem; margin-top: 3rem; border-top: 1px solid #EEE;">
-        <p>{{ app_name }} Admin Panel • Version 1.0 • Last updated: 2026</p>
+        <p>{{ app_name }} • Version 1.0 • Last updated: 2026</p>
         <p style="margin-top: 0.4rem;">Created by <strong style="color: #666;">JonnyTech</strong> • <a href="https://github.com/jonnytech-dev" target="_blank" rel="noopener" style="color: #666; text-decoration: none; border-bottom: 1px solid #CCC;">GitHub</a></p>
     </footer>
 

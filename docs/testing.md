@@ -22,6 +22,8 @@ No Google, Active Directory or network is needed. Nothing touches your real data
 | `test_setup_prompts.py` | rules | First-run password prompts: a wrong confirmation repeats only the confirmation; short passwords are refused first |
 | `test_ignore_list_flow.py` | end to end | The Settings > Ignore list page: what it shows, removing items, notes (length limit, editing, escaping), the dashboard "N ignored" link, and who may read or change it |
 | `test_ou_cleanup_flow.py` | end to end | Deleting OUs Google no longer has: empty only, deepest first, ignore list, renames, failures, and the protections (base DN, outsiders, Domain Controllers) |
+| `test_reset_portal_flow.py` | end to end | The self-service reset page: codes, limits, expiry, refusals (admins, suspended accounts), both passwords changed (Google first), Live email path, Google and AD failures, no secrets in logs |
+| `test_branding_flow.py` | end to end | Settings > Branding: upload, shrinking and re-saving as PNG, refusing non-pictures (pages, SVG, programs, cut-off, huge), metadata removal, Owner only, the form token, and the logo on the reset page |
 | `test_demo_flow.py` | end to end | A fresh install with no credentials, a full sync on the sample data, no email in Demo, the Demo / Live switch and its guards |
 
 ## How the end-to-end tests work

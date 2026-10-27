@@ -145,10 +145,11 @@ def t_visible_accounts_are_filtered_by_what_you_manage():
     assert P.visible_accounts(custom_editor, pool) == []
 
 def t_capabilities_for_the_page_templates():
-    assert P.capabilities(owner) == {'see_accounts': True, 'create_admin': True, 'create_staff': True, 'manage_roles': True, 'set_flags': True, 'manage_connection': True, 'see_ignored': True, 'edit_ignored': True}
+    assert P.capabilities(owner) == {'see_accounts': True, 'create_admin': True, 'create_staff': True, 'manage_roles': True, 'set_flags': True, 'manage_connection': True, 'manage_branding': True, 'see_ignored': True, 'edit_ignored': True}
     c = P.capabilities(admin_staff)
     assert c['see_accounts'] and c['create_staff'] and c['manage_roles'] and not c['create_admin'] and not c['set_flags']
     assert not c['manage_connection'] and not P.can_manage_connection(admin_staff)  # only the Owner switches Demo/Live
+    assert not c['manage_branding'] and not P.can_manage_branding(admin_staff)      # only the Owner sets the logo
     assert not any(P.capabilities(custom_editor).values()) and P.capabilities(None) == {}
 
 def t_ignore_list_permissions():

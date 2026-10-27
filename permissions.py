@@ -149,6 +149,11 @@ def can_manage_connection(actor):
     return actor.role == OWNER
 
 
+def can_manage_branding(actor):
+    """The logo and name shown on the public password reset page: Owner only"""
+    return actor.role == OWNER
+
+
 def can_see_ignored(actor):
     """The ignore list shows what the sync is told to leave alone, so anyone who may preview a sync may read it"""
     return has_permission(actor, 'preview_sync')
@@ -182,6 +187,7 @@ def capabilities(actor):
         'create_staff': can_create_account(actor, CUSTOM),
         'manage_roles': can_manage_roles(actor),
         'manage_connection': can_manage_connection(actor),
+        'manage_branding': can_manage_branding(actor),
         'see_ignored': can_see_ignored(actor),
         'edit_ignored': can_edit_ignored(actor),
         'set_flags': can_set_admin_flags(actor),

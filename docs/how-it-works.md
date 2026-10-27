@@ -13,7 +13,11 @@ Google Workspace  ──▶  GWS2AD  ──▶  Active Directory
 
 - **Google Workspace is the source of truth.** Active Directory follows it. Sync never changes Google.
 - **The dashboard edits Google directly.** Add User, Edit User, Add Group and so on call the Google Admin SDK, and the AD
-  side is brought into line on the next sync (the one exception is passwords, below).
+  side is brought into line on the next sync (the exceptions are passwords, below, and creating users and groups).
+- **Add User and Add Group are all-or-nothing.** They create the account in Active Directory first, then in Google. If either
+  fails, nothing is left behind: a failed Google step removes the AD copy again. The error says which system failed and why
+  (for example "the password does not meet the Active Directory password policy"), with the raw detail in brackets. Add User
+  asks for the password twice. Group membership picked in Add User is added in Google now and in AD on the next sync.
 
 ## Demo mode and Live mode
 

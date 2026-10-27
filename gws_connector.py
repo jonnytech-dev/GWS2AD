@@ -74,6 +74,26 @@ class GWSConnector:
         except Exception as e:
             raise Exception(f"Failed to fetch users from Google Workspace: {e}")
     
+    def get_user_security_info(self, email):
+        """
+        What the password reset page needs to know about one person, or None if
+        Google has no such user. Returns: email (the primary address), suspended,
+        isAdmin (super admin), isDelegatedAdmin, recoveryEmail (may be empty).
+        """
+        try:
+            user = self.service.users().get(userKey=email, projection='basic').execute()
+        except Exception as e:
+            if getattr(getattr(e, 'resp', None), 'status', None) == 404:
+                return None
+            raise Exception(f"Failed to look up {email} in Google Workspace: {e}")
+        return {
+            'email': user.get('primaryEmail', ''),
+            'suspended': bool(user.get('suspended', False)),
+            'isAdmin': bool(user.get('isAdmin', False)),
+            'isDelegatedAdmin': bool(user.get('isDelegatedAdmin', False)),
+            'recoveryEmail': user.get('recoveryEmail', '') or '',
+        }
+
     def get_all_groups(self):
         """
         Fetch all groups from Google Workspace.
@@ -249,19 +269,21 @@ class GWSConnector:
         updates: dict with fields to update (firstName, lastName, password, orgUnitPath, etc.)
         """
         try:
-            user_body = {
-                'name': {},
-            }
+            user_body = {}
+            name = {}
             
             if 'firstName' in updates:
-                user_body['name']['givenName'] = updates['firstName']
+                name['givenName'] = updates['firstName']
             if 'lastName' in updates:
-                user_body['name']['familyName'] = updates['lastName']
+                name['familyName'] = updates['lastName']
             if 'orgUnitPath' in updates:
                 user_body['orgUnitPath'] = updates['orgUnitPath']
             if 'password' in updates and updates['password']:
                 user_body['password'] = updates['password']
                 user_body['changePasswordAtNextLogin'] = False
+            
+            if name:
+                user_body['name'] = name
             
             self.service.users().update(userKey=email, body=user_body).execute()
             print(f"[OK] Updated user: {email}")

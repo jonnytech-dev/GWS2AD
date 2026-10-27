@@ -50,6 +50,10 @@ The Settings > Connection page lists which Live values are still missing. Secret
 | `SECRETS_KEY` | (set by setup) | Decryption key for `secrets.json.enc` |
 | `GWS2AD_HOST` | `127.0.0.1` | Interface to listen on. `0.0.0.0` lets other computers reach it. Use HTTPS if you do |
 | `GWS2AD_PORT` | `5000` (`443` with HTTPS) | Port |
+| `RESET_PORTAL` | on | `false` turns off the self-service password reset page |
+| `RESET_PORTAL_PORT` | `8443` | Port of the reset page. Always HTTPS, needs `cert.pem` and `key.pem` |
+| `RESET_TRUST_PROXY` | off | `true` behind a reverse proxy that sets `X-Forwarded-For` |
+| `RESET_SHOW_REASONS` | off | `true` shows a friendly refusal reason on the reset page (see the reset portal doc for the trade-off) |
 | `USE_HTTPS` | off | `true` serves HTTPS using `cert.pem` and `key.pem` next to `app.py`. Also marks the session cookie `Secure` |
 
 ## Fixed in the code

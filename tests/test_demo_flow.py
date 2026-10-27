@@ -93,14 +93,63 @@ def a_sync_changes_the_pretend_ad_and_sends_no_email():
 
 
 def creating_and_deleting_in_demo_works_and_the_cache_follows():
-    s, r = api('POST', '/api/users', {'email': 'ztest@example.com', 'firstName': 'Zed', 'lastName': 'Test', 'password': 'Aa1!demo-pass'})
+    s, r = api('POST', '/api/users', {'email': 'ztest@example.com', 'firstName': 'Zed', 'lastName': 'Test', 'password': 'Aa1!demo-pass', 'confirmPassword': 'Aa1!demo-pass'})
     assert s == 200, r
     s, users = api('GET', '/api/users')
     assert 'ztest@example.com' in json.dumps(users)
-    s, r = api('POST', '/api/users', {'email': 'ztest@example.com', 'firstName': 'Zed', 'lastName': 'Test', 'password': 'Aa1!demo-pass'})
+    s, r = api('POST', '/api/users', {'email': 'ztest@example.com', 'firstName': 'Zed', 'lastName': 'Test', 'password': 'Aa1!demo-pass', 'confirmPassword': 'Aa1!demo-pass'})
     assert s == 400 and 'already exists' in r['error']
     assert api('DELETE', '/api/users/ztest@example.com')[0] == 200
     assert 'ztest@example.com' not in json.dumps(api('GET', '/api/users')[1])
+
+
+def creating_is_all_or_nothing_across_ad_and_google():
+    from mock_connectors import get_mock_ad, get_mock_gws
+    ad, gws = get_mock_ad(), get_mock_gws()
+    base = {'firstName': 'Pat', 'lastName': 'Lee', 'confirmPassword': None}
+    def user(email, pw, confirm='same'):
+        return api('POST', '/api/users', {'email': email, 'firstName': 'Pat', 'lastName': 'Lee',
+                                          'password': pw, 'confirmPassword': pw if confirm == 'same' else confirm})
+    def in_ad(e): return e.lower() in {u['email'].lower() for u in ad.get_all_users()}
+    def in_gws(e): return any(u['email'].lower() == e.lower() for u in gws.get_all_users())
+    # the two passwords must match, and nothing is made when they do not
+    s, r = user('pat1@example.com', 'Aa1!demo-pass', 'different')
+    assert s == 400 and 'do not match' in r['error'] and not in_ad('pat1@example.com') and not in_gws('pat1@example.com')
+    # a password the AD policy refuses: says where and why, and Google is untouched
+    s, r = user('pat2@example.com', 'weak')
+    assert s == 400 and 'Active Directory' in r['error'] and 'password policy' in r['error'], r
+    assert 'Nothing was created in Google Workspace' in r['error']
+    assert not in_ad('pat2@example.com') and not in_gws('pat2@example.com')
+    # Google refusing after AD succeeded: the AD copy is removed again
+    real = gws.create_user
+    def boom(*a, **k): raise Exception('Failed to create user: Invalid Email Address')
+    gws.create_user = boom
+    try:
+        s, r = user('pat3@example.com', 'Aa1!demo-pass')
+    finally:
+        gws.create_user = real
+    assert s == 400 and 'Google Workspace' in r['error'] and 'removed again' in r['error'], r
+    assert not in_ad('pat3@example.com') and not in_gws('pat3@example.com')
+    # the happy path makes it in both
+    s, r = user('pat4@example.com', 'Aa1!demo-pass')
+    assert s == 200 and in_ad('pat4@example.com') and in_gws('pat4@example.com'), r
+    # already there on either side: refused, nothing touched
+    s, r = user('pat4@example.com', 'Aa1!demo-pass')
+    assert s == 400 and 'already exists' in r['error']
+    api('DELETE', '/api/users/pat4@example.com')
+    # groups follow the same rule
+    s, r = api('POST', '/api/groups', {'email': 'crew@example.com', 'name': 'Crew', 'description': 'x'})
+    assert s == 200 and 'Crew' in {g['name'] for g in gws.get_all_groups()}
+    real = gws.create_group
+    gws.create_group = boom
+    try:
+        s, r = api('POST', '/api/groups', {'email': 'crew2@example.com', 'name': 'Crew Two', 'description': 'x'})
+    finally:
+        gws.create_group = real
+    assert s == 400 and 'Google Workspace' in r['error'] and 'removed again' in r['error'], r
+    assert 'CrewTwo' not in ad.groups, 'the AD group must be rolled back'
+    # every failure is in the audit log with where it failed
+    assert {'create_user', 'create_group'} <= H.audit_actions()
 
 
 def only_the_owner_sees_the_connection_tab():
@@ -195,6 +244,7 @@ STEPS = [
     ("The sync preview shows creates, an update and a delete on the sample data", the_preview_shows_real_work_to_do),
     ("A sync changes the pretend AD, sends no email, and hands temp passwords to the admin", a_sync_changes_the_pretend_ad_and_sends_no_email),
     ("Creating and deleting users works in Demo and the cache follows", creating_and_deleting_in_demo_works_and_the_cache_follows),
+    ("Creating a user or group is all-or-nothing across AD and Google, with clear errors", creating_is_all_or_nothing_across_ad_and_google),
     ("Only the Owner can see or use the Connection tab", only_the_owner_sees_the_connection_tab),
     ("Going Live needs a correct code and saved settings", going_live_needs_the_code_and_saved_settings),
     ("A failing connection check keeps Demo on and says why", a_failed_check_keeps_demo_on),

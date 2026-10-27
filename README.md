@@ -46,6 +46,7 @@ in about five minutes without touching a real system.
 - **Copy your OU layout** into AD, creating the OUs it needs and removing empty ones Google no longer has.
 - **Safe sign-in.** Everyone must use an authenticator app (two-step verification). There are lockouts and recovery codes.
 - **Roles.** One Owner, Admins, and roles like "Help Desk" that can do only what you allow.
+- **Self-service password reset.** A small second page, started with the app on its own port. People get a code at their work email and set one new password for both Google and AD. See [docs](docs/password-reset-portal.md).
 - **History and backups.** A log of sign-ins, changes and syncs, and a backup of your Google data before every sync.
 
 ## Screenshots
@@ -259,6 +260,7 @@ Full detail is in [docs/how-it-works.md](docs/how-it-works.md). The app also has
 | Decide who gets which permissions | [docs/roles-and-permissions.md](docs/roles-and-permissions.md) |
 | See how it is protected, and its limits | [docs/security.md](docs/security.md) |
 | Run it on a server (HTTPS, Windows service) | [docs/deployment.md](docs/deployment.md) |
+| Let people reset their own password | [docs/password-reset-portal.md](docs/password-reset-portal.md) |
 | Fix a problem | [docs/troubleshooting.md](docs/troubleshooting.md) |
 | Run the tests | [docs/testing.md](docs/testing.md) |
 | Report a security problem | [SECURITY.md](SECURITY.md) |
@@ -307,8 +309,8 @@ docs/                  guides and screenshots
 python tests/run_all.py
 ```
 
-Eleven suites: rules for permissions, two-step verification, lockouts, the cache and the setup prompts; and end-to-end tests that drive the real
-app (sign-in, enrolment, accounts, roles, lockouts, Demo mode and the Demo/Live switch, OU cleanup, the ignore list) on a throwaway copy with a controllable clock.
+Thirteen suites: rules for permissions, two-step verification, lockouts, the cache and the setup prompts; and end-to-end tests that drive the real
+app (sign-in, enrolment, accounts, roles, lockouts, Demo mode and the Demo/Live switch, OU cleanup, the ignore list, the password reset page, branding) on a throwaway copy with a controllable clock.
 See [docs/testing.md](docs/testing.md).
 
 ## Contributing

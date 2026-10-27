@@ -1,0 +1,25 @@
+{% extends 'reset/base.html' %}
+{% block content %}
+<p class="kicker">Step 2 of 3</p>
+<h1>Check your email</h1>
+{% include 'reset/_who.html' %}
+<p class="lead">If that address can be reset here, a 6-digit code is on its way to that address. It works for {{ code_minutes }} minutes.</p>
+{% if demo_code %}
+<p class="demo-code">Demo mode: no email is sent, so here is your code: <strong>{{ demo_code }}</strong></p>
+{% endif %}
+{% include 'reset/_notice.html' %}
+<form method="post" action="{{ url_for('check_the_code') }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="code">Type the 6-digit code from the email</label>
+    <input id="code" name="code" class="code" type="text" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus autocomplete="one-time-code" placeholder="123456">
+    <button type="submit">Check the code</button>
+</form>
+<details class="help">
+    <summary>Didn't get a code?</summary>
+    <ul>
+        <li>It can take a few minutes. Check your spam or junk folder.</li>
+        <li>Make sure the address above is the right one. If not, <a href="{{ url_for('start') }}">start over</a>.</li>
+        <li>Codes are only sent to accounts that can be reset here. If yours can't, please contact your IT team.</li>
+    </ul>
+</details>
+{% endblock %}

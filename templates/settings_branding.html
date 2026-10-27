@@ -1,0 +1,54 @@
+{% extends "settings_base.html" %}
+
+{% block settings_body %}
+<div class="settings-narrow">
+    <div class="card">
+        <h2 class="card-title">Branding</h2>
+        <p class="settings-lead">
+            Your logo and organization name are shown on these pages:
+        </p>
+        <ul class="settings-lead">
+            <li><strong>Password reset page</strong>: the page your staff use to reset their own password (logo and name).</li>
+            <li><strong>Dashboard sign-in page</strong> (logo and name).</li>
+            <li><strong>Two-step sign-in pages</strong>: setting up and entering the code (logo and name).</li>
+            <li><strong>Dashboard top bar</strong>, on every dashboard page (logo, and the name under it).</li>
+        </ul>
+        <p class="settings-lead">
+            Without a logo, these pages show the {{ app_name }} triangle.
+        </p>
+
+        <div class="brand-preview">
+            {% if brand.has_logo %}
+                <img src="{{ url_for('settings_branding_logo') }}?v={{ brand.logo_version }}" alt="Current logo" class="brand-preview-img">
+            {% else %}
+                <p class="settings-lead">No logo yet. Every page shows the {{ app_name }} triangle.</p>
+            {% endif %}
+        </div>
+
+        <form method="POST" action="{{ url_for('settings_branding_save') }}" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label for="org_name">Organization name</label>
+                <input type="text" id="org_name" name="org_name" maxlength="{{ max_name }}" value="{{ brand.org_name }}" placeholder="Your organization">
+                <small>Shown under the logo. Optional.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="logo">{{ 'Replace the logo' if brand.has_logo else 'Upload a logo' }}</label>
+                <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
+                <small>PNG, JPG, WEBP or GIF, under {{ max_mb }} MB. A square or wide logo on a plain background works best. SVG is not accepted.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+
+        {% if brand.has_logo %}
+        <form method="POST" action="{{ url_for('settings_branding_remove_logo') }}" class="remove-logo-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary">Remove the logo</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
