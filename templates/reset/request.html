@@ -2,12 +2,12 @@
 {% block content %}
 <p class="kicker">Password reset</p>
 <h1>Let's get you signed back in</h1>
-<p class="lead">Enter your work email address. We will send a 6-digit code to it, then you can choose a new password. It only takes a minute.</p>
+<p class="lead">Enter your email address of the account you want to reset. We will send a 6-digit code to it, then you can choose a new password. It only takes a minute.</p>
 
 {% include 'reset/_notice.html' %}
 <form method="post" action="{{ url_for('ask_for_code') }}" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label for="email">Your work email address</label>
+    <label for="email">Your email address</label>
     <input id="email" name="email" type="email" value="{{ email }}" maxlength="254" required autofocus autocomplete="username" placeholder="name@example.com">
     <button type="submit">Send me a code</button>
 </form>
@@ -16,5 +16,5 @@
     <li>Resets your <strong>computer sign-in</strong> (Active Directory)</li>
     <li>and your <strong>Google Workspace</strong> password, together</li>
 </ul>
-<p class="small">You will need to open your work inbox to get the code. Some accounts, such as administrator accounts, can't be reset on this page.</p>
+<p class="small">You will need to open your inbox to get the code. Some accounts, such as administrator accounts, can't be reset on this page.</p>
 {% endblock %}
